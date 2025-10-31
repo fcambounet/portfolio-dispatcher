@@ -1,0 +1,4 @@
+max_weights: { line: 0.05, sector: 0.20 }
+cash: { min: 0.05 }
+rebalancing: { drift_pct: 0.30 }
+risk: { var95_max: 0.08 }

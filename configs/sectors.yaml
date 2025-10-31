@@ -1,0 +1,5 @@
+active: [Technology, Healthcare, Energy]
+params:
+  Technology: { topN: 5, minLiquidity: 2000000 }
+  Healthcare: { topN: 5, minLiquidity: 1000000 }
+  Energy:     { topN: 5, minLiquidity: 1500000 }

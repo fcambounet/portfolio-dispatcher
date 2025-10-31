@@ -1,0 +1,7 @@
+{
+  "name": "portfolio-dispatcher",
+  "main": "index.ts",
+  "account_id": "dcc0de77c0300a6edc922e0b98682c62",
+  "compatibility_date": "2025-10-31",
+  "vars": { "ROUTE_LABEL": "run:portfolio" }
+}

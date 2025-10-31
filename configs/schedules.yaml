@@ -1,0 +1,2 @@
+weekly:  [as-update, ce-refresh, rs-topn, ir-consolidate, sp-allocate, rm-check, exe-simulate, cqa-audit]
+monthly: [review-scenarios, backtest-rolling]
