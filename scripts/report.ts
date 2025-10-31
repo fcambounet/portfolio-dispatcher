@@ -81,14 +81,37 @@ const riskColor = p.riskStatus === "GREEN" ? "#16a34a" : p.riskStatus === "ORANG
 const rows = p.target
   .sort((a,b)=>b.weight-a.weight)
   .map(t => {
+    // On tente de retrouver le secteur et les métriques depuis l’analyse (si présente)
     const sector = symToSector.get(t.symbol) || "—";
     const closes = tryLoadSeries(t.symbol);
     const svg = sparkline(closes.slice(-30), 140, 36, "#334155");
+
+    // NEW: rechercher les métriques du symbole dans les analyses par secteur
+    let chg5d: number | undefined;
+    let vol20: number | undefined;
+    let score: number | undefined;
+    for (const s of (w.summary || [])) {
+      const sectorPath = path.join("data","sectors", `${s.sector}.json`);
+      if (fs.existsSync(sectorPath)) {
+        try {
+          const json = JSON.parse(fs.readFileSync(sectorPath,"utf8"));
+          const m = (json.symbols || []).find((x:any)=>x.symbol===t.symbol);
+          if (m) { chg5d = m.chg5d; vol20 = m.vol20; /* score non stocké ici */ }
+        } catch {}
+      }
+    }
+    // on peut parse le "reason" (ex. "Score=…") pour remonter le score
+    const match = (t.reason || "").match(/Score=([+-]?\d+(\.\d+)?)/);
+    if (match) score = Number(match[1]);
+
     return `<tr>
       <td>${t.symbol}</td>
       <td>${(t.weight*100).toFixed(2)}%</td>
       <td>${sector}</td>
       <td>${svg}</td>
+      <td>${(chg5d ?? 0).toFixed(2)}%</td>
+      <td>${(vol20 ?? 0).toFixed(3)}</td>
+      <td>${(score ?? 0).toFixed(3)}</td>
       <td>${t.reason ?? ""}</td>
     </tr>`;
   })
@@ -138,7 +161,12 @@ const html = `<!doctype html>
       <h2>Allocation cible</h2>
       <div style="overflow:auto; margin:8px 0 12px">${barChartSVG(weights)}</div>
       <table>
-        <thead><tr><th>Symbole</th><th>Poids</th><th>Secteur</th><th>30j</th><th>Raison</th></tr></thead>
+        <thead>
+          <tr>
+            <th>Symbole</th><th>Poids</th><th>Secteur</th><th>30j</th>
+            <th>chg5d</th><th>vol20</th><th>score</th><th>Raison</th>
+          </tr>
+        </thead>
         <tbody>${rows || '<tr><td colspan="5" class="muted">Aucune ligne</td></tr>'}</tbody>
       </table>
     </div>

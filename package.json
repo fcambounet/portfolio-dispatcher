@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "tsx src/index.ts",
-    "run:weekly": "RUN=weekly tsx src/index.ts",
-    "run:monthly": "RUN=monthly tsx src/index.ts",
+    "run:weekly": "cross-env RUN=weekly tsx src/index.ts",
+    "run:monthly": "cross-env RUN=monthly tsx src/index.ts",
     "worker:dev": "wrangler dev worker/index.ts",
     "worker:deploy": "wrangler deploy worker/index.ts",
     "report:cache": "tsx scripts/cache-series.ts",
@@ -18,6 +18,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "cross-env": "^10.1.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.3"
   }
