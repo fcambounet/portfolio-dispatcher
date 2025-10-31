@@ -33,4 +33,3 @@ Configurer les secrets via `wrangler secret put` (WEBHOOK_SECRET, GITHUB_TOKEN).
 # portfolio-dispatcher
 Cabinet d'investissement
 >>>>>>> 7d0ef255fe021cfbebe1794232a8d57b05a0b4f8
-

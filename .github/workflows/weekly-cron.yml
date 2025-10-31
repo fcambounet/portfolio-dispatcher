@@ -1,0 +1,73 @@
+name: weekly-portfolio
+
+on:
+  # ⏱️ Lundi 08:00 UTC (≈ 09:00 en hiver à Paris, 10:00 en été)
+  schedule:
+    - cron: "0 8 * * 1"
+  # 👇 Permet aussi de lancer manuellement pour tester
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  actions: write
+
+concurrency:
+  group: "weekly-portfolio"
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Generate weekly data
+        run: npm run run:weekly
+
+      - name: Build sparkline cache
+        run: npm run report:cache
+
+      - name: Build HTML reports
+        run: npm run report:html
+
+      # 📄 GitHub Pages (publie report/index.html + weekly-report.html + datés)
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: report
+
+      - name: Deploy to GitHub Pages
+        id: deploy-pages
+        uses: actions/deploy-pages@v4
+
+  # 📦 Artefacts JSON (fichiers bruts téléchargeables)
+  store-json:
+    needs: build-and-publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Upload artifacts (JSON)
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-artifacts-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            data/weekly-summary.json
+            data/portfolio.target.json
+            data/recos.jsonl
+            data/exec.log.jsonl
