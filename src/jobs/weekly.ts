@@ -3,7 +3,9 @@ import { AnalysteSectoriel } from "../agents/analyste-sectoriel.js";
 import { RecommandateurSectoriel } from "../agents/recommandateur-sectoriel.js";
 import { StrategistePortefeuille } from "../agents/strategiste-portefeuille.js";
 import { RiskManager } from "../agents/risk-manager.js";
+import { AnalysteSectorielPro } from "../agents/analyste-sectoriel-pro.js"; // NEW
 import fs from "node:fs";
+import path from "node:path";
 
 const SECTORS = ["Technology", "Healthcare", "Energy"];
 const CONSTRAINTS = { maxLine: 0.05, maxSector: 0.20 };
@@ -12,18 +14,38 @@ export async function runWeekly() {
   const summary: any[] = [];
   const sectorsTop: any[] = [];
 
+  // Assure l'arborescence des analyses
+  fs.mkdirSync(path.join("data", "sectors"), { recursive: true }); // NEW
+
   for (const sector of SECTORS) {
+    // Analyse "simple" existante (historique du pipeline)
     const as = await AnalysteSectoriel.handle({ sector });
+
+    // Analyse "pro" détaillée (nouvel agent)
+    const asp = await AnalysteSectorielPro.handle({ sector }); // NEW
+    fs.writeFileSync( // NEW
+      path.join("data", "sectors", `${sector}.json`),
+      JSON.stringify(asp, null, 2),
+      "utf8"
+    );
+
     const rs = await RecommandateurSectoriel.handle({ sector });
-    appendJSONL("recos.jsonl", { sector, as, rs });
+    appendJSONL("recos.jsonl", { sector, as, asp, rs }); // inclut asp
 
     const picks = (rs.topN || []).map((t: any) => ({ symbol: t.symbol, change: t.change }));
     sectorsTop.push({ sector, picks });
     summary.push({ sector, top: picks.map((p: any) => `${p.symbol} (${(p.change ?? 0).toFixed(2)}%)`) });
   }
 
-  const alloc = await StrategistePortefeuille.handle({ sectors: sectorsTop, constraints: { maxLine: CONSTRAINTS.maxLine, maxSector: CONSTRAINTS.maxSector } });
-  const risk = await RiskManager.handle({ target: alloc.target, limits: { maxLine: CONSTRAINTS.maxLine, maxSector: CONSTRAINTS.maxSector } });
+  const alloc = await StrategistePortefeuille.handle({
+    sectors: sectorsTop,
+    constraints: { maxLine: CONSTRAINTS.maxLine, maxSector: CONSTRAINTS.maxSector }
+  });
+
+  const risk = await RiskManager.handle({
+    target: alloc.target,
+    limits: { maxLine: CONSTRAINTS.maxLine, maxSector: CONSTRAINTS.maxSector }
+  });
 
   const portfolio = {
     asOf: new Date().toISOString(),
