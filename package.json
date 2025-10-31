@@ -8,6 +8,7 @@
     "run:monthly": "RUN=monthly tsx src/index.ts",
     "worker:dev": "wrangler dev worker/index.ts",
     "worker:deploy": "wrangler deploy worker/index.ts",
+    "report:cache": "tsx scripts/cache-series.ts",
     "report:html": "tsx scripts/report.ts"
   },
   "dependencies": {

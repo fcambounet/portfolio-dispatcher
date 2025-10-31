@@ -31,6 +31,29 @@ jobs:
         if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
         run: npm run run:weekly
 
+      - name: Build sparkline cache
+        if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
+        run: npm run report:cache
+
+      - name: Build HTML report(s)
+        if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
+        run: npm run report:html
+
+      - name: Setup Pages
+        if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
+        uses: actions/configure-pages@v4
+
+      - name: Upload Pages artifact
+        if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: report
+
+      - name: Deploy to GitHub Pages
+        if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
+        id: deployment
+        uses: actions/deploy-pages@v4
+
       - name: Build HTML report
         if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
         run: npm run report:html
