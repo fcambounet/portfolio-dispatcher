@@ -138,9 +138,33 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: weekly-artifacts-${{ github.run_id }}-${{ github.run_attempt }}
+          name: weekly-artifacts
           path: |
             data/weekly-summary.json
             data/portfolio.target.json
             data/recos.jsonl
             data/exec.log.jsonl
+          overwrite: true
+
+      # 🧹 Purge les artefacts homonymes de CE run (évite le 409 Conflict)
+      - name: Purge existing artifacts for this run
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run_id = context.runId;
+            const { data } = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id
+            });
+            for (const a of data.artifacts) {
+              if (a.name.startsWith('weekly-artifacts')) {
+                core.info(`Deleting artifact ${a.name} (id=${a.id})`);
+                await github.rest.actions.deleteArtifact({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  artifact_id: a.id
+                });
+              }
+            }
