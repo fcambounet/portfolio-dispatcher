@@ -1,21 +1,53 @@
+import fs from "node:fs";
+import path from "node:path";
 import type { Agent } from "../core/types.js";
 
 type Pick = { symbol: string; change?: number; score?: number };
 type SectorTop = { sector: string; picks: Pick[] };
+type Constraints = { maxLine: number; maxSector: number };
+
+function loadSectorAgg(sector: string): { avgChg5d?: number; avgVol20?: number } | null {
+  const p = path.join("data", "sectors", `${sector}.json`);
+  if (!fs.existsSync(p)) return null;
+  try {
+    const j = JSON.parse(fs.readFileSync(p, "utf8"));
+    return j.aggregates || null;
+  } catch {
+    return null;
+  }
+}
 
 export const StrategistePortefeuille: Agent<
-  { sectors: SectorTop[], constraints: { maxLine: number; maxSector: number } },
+  { sectors: SectorTop[]; constraints: Constraints },
   { target: any[] }
 > = {
   name: "SP",
   handles: ["sp.allocate"],
   async handle({ sectors, constraints }) {
-    // Poids par secteur égalisés (ou à affiner plus tard)
-    const nSec = sectors.length || 1;
-    const perSector = Math.min(1 / nSec, constraints.maxSector);
+    const ε = 1e-4;
 
+    // 🔹 1. Charger agrégats et calculer score sectoriel
+    const sectorsWithScores = sectors.map(s => {
+      const agg = loadSectorAgg(s.sector);
+      const score =
+        agg && agg.avgChg5d !== undefined && agg.avgVol20 !== undefined
+          ? agg.avgChg5d / (Math.abs(agg.avgVol20) + ε)
+          : 1; // fallback neutre
+      return { ...s, sectorScore: score };
+    });
+
+    // 🔹 2. Normaliser les scores pour qu'ils fassent 1
+    const totalScore = sectorsWithScores.reduce((a, b) => a + (b.sectorScore || 0), 0) || 1;
+    const sectorsWeighted = sectorsWithScores.map(s => ({
+      ...s,
+      sectorWeight: (s.sectorScore || 0) / totalScore
+    }));
+
+    // 🔹 3. Créer les allocations internes
     const target: any[] = [];
-    for (const s of sectors) {
+
+    for (const s of sectorsWeighted) {
+      const perSector = Math.min(s.sectorWeight, constraints.maxSector);
       const picks = s.picks || [];
 
       // normalisation par score (fallback = égal)
@@ -25,18 +57,17 @@ export const StrategistePortefeuille: Agent<
       for (let i = 0; i < picks.length; i++) {
         const frac = (scores[i] || 1) / sum;
         let w = perSector * frac;
-        // borne max par ligne
         if (w > constraints.maxLine) w = constraints.maxLine;
 
         target.push({
           symbol: picks[i].symbol,
           weight: Number(w.toFixed(4)),
-          reason: `Score=${(picks[i].score ?? 0).toFixed(3)}`
+          reason: `SectorScore=${s.sectorScore.toFixed(3)}; PickScore=${(picks[i].score ?? 0).toFixed(3)}`
         });
       }
     }
 
-    // Normalisation globale si > 100%
+    // 🔹 4. Normalisation globale si > 100 %
     const total = target.reduce((a, b) => a + b.weight, 0);
     if (total > 1) target.forEach(t => (t.weight = Number((t.weight / total).toFixed(4))));
 

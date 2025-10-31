@@ -2,11 +2,11 @@
 import type { Agent } from "../core/types.js";
 import { fetchDailyCloses, estimateVolatility } from "../core/finance.js";
 
-const UNIVERSE: Record<string, string[]> = {
-  Technology: ["AAPL", "MSFT", "NVDA"],
-  Healthcare: ["JNJ", "PFE", "UNH"],
-  Energy: ["XOM", "CVX", "BP"],
-};
+import { loadConfig } from "../core/config.js";
+const config = loadConfig();
+const UNIVERSE: Record<string, string[]> = Object.fromEntries(
+  config.sectors.map(s => [s.name, s.symbols])
+);
 
 type SymbolMetrics = {
   symbol: string;

@@ -9,19 +9,14 @@ import { getLatestChangePct } from "../core/finance.js";
  * Alternative (souvent plus stable): score = chg5d / (vol20 + ε)
  * On expose les deux; on choisit la seconde par défaut.
  */
-const WEIGHTS = {
-  useRatio: true,         // ← mettre false pour la forme linéaire
-  w5: 1.0,
-  w20: 0.0,
-  lambda: 0.0,
-  eps: 1e-4
-};
+import { loadConfig } from "../core/config.js";
+const cfg = loadConfig();
 
-const UNIVERSE: Record<string, string[]> = {
-  Technology: ["AAPL", "MSFT", "NVDA"],
-  Healthcare: ["JNJ", "PFE", "UNH"],
-  Energy: ["XOM", "CVX", "BP"]
-};
+const UNIVERSE: Record<string, string[]> = Object.fromEntries(
+  cfg.sectors.map(s => [s.name, s.symbols])
+);
+
+const WEIGHTS = cfg.scoring;
 
 type SectorAnalysis = {
   symbols: Array<{

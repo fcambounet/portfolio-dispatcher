@@ -21,7 +21,56 @@
 <div class="wrap">
   <div class="card">
     <h1>📊 Rapport hebdo — Portefeuille <span class="badge">Risque : GREEN</span></h1>
-    <div class="muted">Généré le 31/10/2025 14:53:45 • Données au 31/10/2025 14:53:33</div>
+    <div class="muted">Généré le 31/10/2025 16:04:52 • Données au 31/10/2025 16:04:48</div>
+    
+<details style="margin-top:1rem;padding:0.5rem;border:1px solid #ddd;border-radius:8px;">
+  <summary><b>Configuration active</b></summary>
+  <pre style="font-size:0.9em;background:#f9fafb;padding:0.5rem;border-radius:6px;overflow-x:auto;">
+{
+  "sectors": [
+    {
+      "name": "Technology",
+      "symbols": [
+        "AAPL",
+        "MSFT",
+        "NVDA"
+      ]
+    },
+    {
+      "name": "Healthcare",
+      "symbols": [
+        "JNJ",
+        "PFE",
+        "UNH"
+      ]
+    },
+    {
+      "name": "Energy",
+      "symbols": [
+        "XOM",
+        "CVX",
+        "BP"
+      ]
+    }
+  ],
+  "constraints": {
+    "maxLine": 0.05,
+    "maxSector": 0.2
+  },
+  "scoring": {
+    "formula": "ratio",
+    "w5": 1,
+    "w20": 0,
+    "lambda": 0,
+    "eps": 0.0001
+  },
+  "risk": {
+    "targetVol": 0.2,
+    "maxDrawdown": 0.1
+  }
+}
+  </pre>
+</details>
     <div class="legend" style="margin-top:8px">
       <span class="tech">Technology</span>
       <span class="health">Healthcare</span>
@@ -42,13 +91,13 @@
       <rect x="180" y="42" width="220" height="14" rx="4" fill="#3b82f6"/>
       <text x="406" y="54" font-family="ui-sans-serif,system-ui" font-size="12" fill="#111">5.00%</text>
     
-      <text x="8" y="82" font-family="ui-sans-serif,system-ui" font-size="13">PFE</text>
-      <rect x="180" y="70" width="220" height="14" rx="4" fill="#10b981"/>
-      <text x="406" y="82" font-family="ui-sans-serif,system-ui" font-size="12" fill="#111">5.00%</text>
+      <text x="8" y="82" font-family="ui-sans-serif,system-ui" font-size="13">JNJ</text>
+      <rect x="180" y="70" width="-7033" height="14" rx="4" fill="#10b981"/>
+      <text x="-6847" y="82" font-family="ui-sans-serif,system-ui" font-size="12" fill="#111">-159.85%</text>
     
-      <text x="8" y="110" font-family="ui-sans-serif,system-ui" font-size="13">JNJ</text>
-      <rect x="180" y="98" width="220" height="14" rx="4" fill="#10b981"/>
-      <text x="406" y="110" font-family="ui-sans-serif,system-ui" font-size="12" fill="#111">5.00%</text>
+      <text x="8" y="110" font-family="ui-sans-serif,system-ui" font-size="13">PFE</text>
+      <rect x="180" y="98" width="-7033" height="14" rx="4" fill="#10b981"/>
+      <text x="-6847" y="110" font-family="ui-sans-serif,system-ui" font-size="12" fill="#111">-159.85%</text>
     
       <text x="8" y="138" font-family="ui-sans-serif,system-ui" font-size="13">CVX</text>
       <rect x="180" y="126" width="220" height="14" rx="4" fill="#f59e0b"/>
@@ -71,56 +120,34 @@
       <td>5.00%</td>
       <td>Technology</td>
       <td><svg viewBox="0 0 140 36" width="140" height="36">
-    <polyline fill="none" stroke="#334155" stroke-width="2" points="0,27 6,26 12,24 18,26 24,28 30,29 37,24 43,19 49,32 55,25 61,36 67,36 73,33 79,32 85,32 91,34 97,35 103,33 110,27 116,21 122,8 128,0 134,5 140,1"/>
+    <polyline fill="none" stroke="#334155" stroke-width="2" points="0,27 6,26 12,24 18,26 24,28 30,29 37,24 43,19 49,32 55,25 61,36 67,36 73,33 79,32 85,32 91,34 97,35 103,33 110,27 116,21 122,8 128,0 134,5 140,3"/>
   </svg></td>
-      <td>10.89%</td>
+      <td>10.85%</td>
       <td>0.024</td>
-      <td>0.000</td>
-      <td>Score=0.000</td>
+      <td>257.623</td>
+      <td>SectorScore=257.623; PickScore=0.000</td>
     </tr><tr>
       <td>AAPL</td>
       <td>5.00%</td>
       <td>Technology</td>
       <td><svg viewBox="0 0 140 36" width="140" height="36">
-    <polyline fill="none" stroke="#334155" stroke-width="2" points="0,23 6,22 12,20 18,18 24,20 30,21 37,18 43,24 49,36 55,33 61,33 67,30 73,33 79,26 85,13 91,12 97,18 103,16 110,12 116,4 122,3 128,2 134,0 140,0"/>
+    <polyline fill="none" stroke="#334155" stroke-width="2" points="0,23 6,22 12,20 18,18 24,20 30,21 37,18 43,24 49,36 55,33 61,33 67,30 73,33 79,26 85,13 91,12 97,18 103,16 110,12 116,4 122,3 128,2 134,0 140,2"/>
   </svg></td>
-      <td>3.28%</td>
+      <td>3.08%</td>
       <td>0.015</td>
-      <td>0.000</td>
-      <td>Score=0.000</td>
-    </tr><tr>
-      <td>PFE</td>
-      <td>5.00%</td>
-      <td>Healthcare</td>
-      <td><svg viewBox="0 0 140 36" width="140" height="36">
-    <polyline fill="none" stroke="#334155" stroke-width="2" points="0,22 6,2 12,3 18,0 24,11 30,13 37,19 43,24 49,30 55,30 61,33 67,34 73,36 79,33 85,31 91,29 97,30 103,31 110,30 116,30 122,33 128,35 134,35 140,31"/>
-  </svg></td>
-      <td>-0.63%</td>
-      <td>0.012</td>
-      <td>0.000</td>
-      <td>Score=0.000</td>
-    </tr><tr>
-      <td>JNJ</td>
-      <td>5.00%</td>
-      <td>Healthcare</td>
-      <td><svg viewBox="0 0 140 36" width="140" height="36">
-    <polyline fill="none" stroke="#334155" stroke-width="2" points="0,36 6,33 12,34 18,22 24,24 30,21 37,17 43,11 49,13 55,12 61,12 67,11 73,7 79,2 85,0 91,8 97,3 103,5 110,14 116,15 122,29 128,31 134,20 140,24"/>
-  </svg></td>
-      <td>-1.09%</td>
-      <td>0.007</td>
-      <td>0.000</td>
-      <td>Score=0.000</td>
+      <td>257.623</td>
+      <td>SectorScore=257.623; PickScore=0.000</td>
     </tr><tr>
       <td>CVX</td>
       <td>5.00%</td>
       <td>Energy</td>
       <td><svg viewBox="0 0 140 36" width="140" height="36">
-    <polyline fill="none" stroke="#334155" stroke-width="2" points="0,11 6,13 12,18 18,18 24,16 30,12 37,17 43,25 49,36 55,24 61,22 67,23 73,25 79,19 85,14 91,17 97,10 103,6 110,10 116,11 122,15 128,11 134,18 140,0"/>
+    <polyline fill="none" stroke="#334155" stroke-width="2" points="0,12 6,14 12,19 18,18 24,16 30,13 37,17 43,26 49,36 55,24 61,23 67,24 73,25 79,20 85,15 91,17 97,10 103,7 110,10 116,12 122,16 128,12 134,18 140,0"/>
   </svg></td>
-      <td>1.53%</td>
-      <td>0.011</td>
-      <td>0.000</td>
-      <td>Score=0.000</td>
+      <td>1.81%</td>
+      <td>0.012</td>
+      <td>26.929</td>
+      <td>SectorScore=26.929; PickScore=0.000</td>
     </tr><tr>
       <td>BP</td>
       <td>5.00%</td>
@@ -128,17 +155,39 @@
       <td><svg viewBox="0 0 140 36" width="140" height="36">
     <polyline fill="none" stroke="#334155" stroke-width="2" points="0,11 6,11 12,20 18,15 24,6 30,3 37,10 43,14 49,25 55,22 61,31 67,28 73,36 79,31 85,29 91,30 97,13 103,3 110,10 116,6 122,11 128,0 134,6 140,4"/>
   </svg></td>
-      <td>1.11%</td>
+      <td>0.80%</td>
       <td>0.015</td>
-      <td>0.000</td>
-      <td>Score=0.000</td>
+      <td>26.929</td>
+      <td>SectorScore=26.929; PickScore=0.000</td>
+    </tr><tr>
+      <td>JNJ</td>
+      <td>-159.85%</td>
+      <td>Healthcare</td>
+      <td><svg viewBox="0 0 140 36" width="140" height="36">
+    <polyline fill="none" stroke="#334155" stroke-width="2" points="0,36 6,33 12,34 18,22 24,24 30,21 37,17 43,11 49,13 55,12 61,12 67,11 73,7 79,2 85,0 91,8 97,3 103,5 110,14 116,15 122,29 128,31 134,20 140,24"/>
+  </svg></td>
+      <td>-1.08%</td>
+      <td>0.007</td>
+      <td>-216.755</td>
+      <td>SectorScore=-216.755; PickScore=0.000</td>
+    </tr><tr>
+      <td>PFE</td>
+      <td>-159.85%</td>
+      <td>Healthcare</td>
+      <td><svg viewBox="0 0 140 36" width="140" height="36">
+    <polyline fill="none" stroke="#334155" stroke-width="2" points="0,22 6,2 12,3 18,0 24,11 30,13 37,19 43,24 49,30 55,30 61,33 67,34 73,36 79,33 85,31 91,29 97,30 103,31 110,30 116,30 122,33 128,35 134,35 140,31"/>
+  </svg></td>
+      <td>-1.35%</td>
+      <td>0.011</td>
+      <td>-216.755</td>
+      <td>SectorScore=-216.755; PickScore=0.000</td>
     </tr></tbody>
       </table>
     </div>
     <div>
       <div class="card">
         <h2>Picks par secteur</h2>
-        <ul style="margin:0; padding-left:18px"><li><b>Technology</b> : NVDA (0.00%), AAPL (0.00%)</li><li><b>Healthcare</b> : PFE (0.00%), JNJ (0.00%)</li><li><b>Energy</b> : CVX (0.00%), BP (0.00%)</li></ul>
+        <ul style="margin:0; padding-left:18px"><li><b>Technology</b> : NVDA (0.00%), AAPL (0.00%)</li><li><b>Healthcare</b> : JNJ (0.00%), PFE (0.00%)</li><li><b>Energy</b> : CVX (0.00%), BP (0.00%)</li></ul>
       </div>
       <div class="card">
         <h2>Contrôles de risque</h2>

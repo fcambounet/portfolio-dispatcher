@@ -1,0 +1,24 @@
+# Configuration centrale du portefeuille
+
+sectors:
+  - name: Technology
+    symbols: [AAPL, MSFT, NVDA]
+  - name: Healthcare
+    symbols: [JNJ, PFE, UNH]
+  - name: Energy
+    symbols: [XOM, CVX, BP]
+
+constraints:
+  maxLine: 0.05
+  maxSector: 0.20
+
+scoring:
+  formula: ratio          # ratio | linear
+  w5: 1.0
+  w20: 0.0
+  lambda: 0.0
+  eps: 1e-4
+
+risk:
+  targetVol: 0.20
+  maxDrawdown: 0.10

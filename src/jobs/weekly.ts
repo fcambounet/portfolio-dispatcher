@@ -7,8 +7,10 @@ import { AnalysteSectorielPro } from "../agents/analyste-sectoriel-pro.js"; // N
 import fs from "node:fs";
 import path from "node:path";
 
-const SECTORS = ["Technology", "Healthcare", "Energy"];
-const CONSTRAINTS = { maxLine: 0.05, maxSector: 0.20 };
+import { loadConfig } from "../core/config.js";
+const cfg = loadConfig();
+const SECTORS = cfg.sectors.map(s => s.name);
+const CONSTRAINTS = cfg.constraints;
 
 export async function runWeekly() {
   const summary: any[] = [];

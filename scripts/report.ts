@@ -1,6 +1,7 @@
 // scripts/report.ts
 import fs from "node:fs";
 import path from "node:path";
+import { loadConfig } from "../src/core/config.js";
 
 type Target = { symbol: string; weight: number; reason?: string };
 type Portfolio = { asOf: string; target: Target[]; riskStatus: "GREEN"|"ORANGE"|"RED"; riskBreaches: string[] };
@@ -30,6 +31,18 @@ const sectorColor: Record<string,string> = {
   Energy:      "#f59e0b",
   Default:     "#64748b"
 };
+
+// 💡 Chargement de la configuration YAML
+const cfg = loadConfig();
+
+// 💡 Génère un petit encart HTML pour la visualiser dans le rapport
+const cfgHTML = `
+<details style="margin-top:1rem;padding:0.5rem;border:1px solid #ddd;border-radius:8px;">
+  <summary><b>Configuration active</b></summary>
+  <pre style="font-size:0.9em;background:#f9fafb;padding:0.5rem;border-radius:6px;overflow-x:auto;">
+${JSON.stringify(cfg, null, 2)}
+  </pre>
+</details>`;
 
 // --- assets: mini sparkline SVG ---
 function sparkline(values: number[], w=140, h=36, stroke="#111"): string {
@@ -149,6 +162,7 @@ const html = `<!doctype html>
   <div class="card">
     <h1>📊 Rapport hebdo — Portefeuille <span class="badge">Risque : ${p.riskStatus}</span></h1>
     <div class="muted">Généré le ${new Date().toLocaleString("fr-FR")} • Données au ${new Date(p.asOf).toLocaleString("fr-FR")}</div>
+    ${cfgHTML}
     <div class="legend" style="margin-top:8px">
       <span class="tech">Technology</span>
       <span class="health">Healthcare</span>
