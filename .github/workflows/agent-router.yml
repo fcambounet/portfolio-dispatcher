@@ -7,6 +7,8 @@ permissions:
   contents: read         # lire le repo
   pull-requests: write   # commenter / modifier PR
   issues: write          # commenter (API issues/*)
+  pages: write           # ← pour publier Pages
+  id-token: write        # ← requis par deploy-pages
 
 jobs:
   route:
@@ -32,6 +34,24 @@ jobs:
       - name: Build HTML report
         if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
         run: npm run report:html
+
+      # Configure l'environnement GitHub Pages
+      - name: Setup Pages
+        if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
+        uses: actions/configure-pages@v4
+
+      # Upload le dossier 'report' comme artefact Pages
+      - name: Upload Pages artifact
+        if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: report
+
+      # Déploie vers GitHub Pages
+      - name: Deploy to GitHub Pages
+        if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
+        id: deployment
+        uses: actions/deploy-pages@v4
 
       - name: Upload HTML report
         if: always()
