@@ -1,0 +1,16 @@
+# Node
+node_modules/
+npm-debug.log*
+dist/
+
+# Env & secrets
+.env
+.env.*.local
+Cloudflare_API_token.txt
+
+# Data/artefacts locaux
+data/
+*.sqlite
+
+# Cloudflare
+.wrangler/
