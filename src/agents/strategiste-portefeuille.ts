@@ -24,52 +24,78 @@ export const StrategistePortefeuille: Agent<
   name: "SP",
   handles: ["sp.allocate"],
   async handle({ sectors, constraints }) {
+    const EPS = 1e-8;
     const ε = 1e-4;
 
-    // 🔹 1. Charger agrégats et calculer score sectoriel
-    const sectorsWithScores = sectors.map(s => {
+    // 1) Score sectoriel (clampé à >= 0) ; fallback = 1 si manquant
+    let rawSectorScores = sectors.map(s => {
       const agg = loadSectorAgg(s.sector);
-      const score =
-        agg && agg.avgChg5d !== undefined && agg.avgVol20 !== undefined
-          ? agg.avgChg5d / (Math.abs(agg.avgVol20) + ε)
-          : 1; // fallback neutre
-      return { ...s, sectorScore: score };
+      let score = 1; // neutre
+      if (agg && Number.isFinite(agg.avgChg5d) && Number.isFinite(agg.avgVol20)) {
+        score = (agg.avgChg5d as number) / (Math.abs(agg.avgVol20 as number) + ε);
+      }
+      if (!Number.isFinite(score)) score = 0;
+      // clamp >= 0 (pas de poids négatifs)
+      score = Math.max(0, score);
+      return { sector: s.sector, picks: s.picks || [], score };
     });
 
-    // 🔹 2. Normaliser les scores pour qu'ils fassent 1
-    const totalScore = sectorsWithScores.reduce((a, b) => a + (b.sectorScore || 0), 0) || 1;
-    const sectorsWeighted = sectorsWithScores.map(s => ({
-      ...s,
-      sectorWeight: (s.sectorScore || 0) / totalScore
-    }));
+    // si tous les scores sont 0, fallback égalitaire
+    const sumSector = rawSectorScores.reduce((a, b) => a + b.score, 0);
+    if (sumSector <= EPS) {
+      rawSectorScores = rawSectorScores.map(s => ({ ...s, score: 1 }));
+    }
 
-    // 🔹 3. Créer les allocations internes
+    // normaliser secteur → poids sectoriel (<= maxSector)
+    const sectorTotal = rawSectorScores.reduce((a, b) => a + b.score, 0) || 1;
+    const sectorsWeighted = rawSectorScores.map(s => {
+      const w = s.score / sectorTotal;
+      return { ...s, sectorWeight: Math.min(w, constraints.maxSector) };
+    });
+
+    // 2) Pondération intra-secteur par scores (clampés >= 0), fallback égalitaire si somme = 0
     const target: any[] = [];
-
     for (const s of sectorsWeighted) {
-      const perSector = Math.min(s.sectorWeight, constraints.maxSector);
-      const picks = s.picks || [];
+      const pickScores = (s.picks || []).map(p => {
+        let sc = Number.isFinite(p.score as number) ? (p.score as number) : 0;
+        if (!Number.isFinite(sc)) sc = 0;
+        return Math.max(0, sc); // clamp >= 0
+      });
+      let sumPick = pickScores.reduce((a, b) => a + b, 0);
+      if (sumPick <= EPS) {
+        // tout à 0 → égalitaire
+        pickScores.fill(1);
+        sumPick = pickScores.length || 1;
+      }
 
-      // normalisation par score (fallback = égal)
-      const scores = picks.map(p => Number.isFinite(p.score as number) ? (p.score as number) : 1);
-      const sum = scores.reduce((a, b) => a + (isFinite(b) ? b : 0), 0) || picks.length || 1;
-
-      for (let i = 0; i < picks.length; i++) {
-        const frac = (scores[i] || 1) / sum;
-        let w = perSector * frac;
+      for (let i = 0; i < (s.picks || []).length; i++) {
+        const frac = pickScores[i] / sumPick;
+        let w = s.sectorWeight * frac;
+        // cap ligne
         if (w > constraints.maxLine) w = constraints.maxLine;
+        // clamp >= 0
+        w = Math.max(0, w);
 
         target.push({
-          symbol: picks[i].symbol,
+          symbol: s.picks[i].symbol,
           weight: Number(w.toFixed(4)),
-          reason: `SectorScore=${s.sectorScore.toFixed(3)}; PickScore=${(picks[i].score ?? 0).toFixed(3)}`
+          reason: `SectorScore=${s.score.toFixed(3)}; SectorW=${s.sectorWeight.toFixed(3)}; PickScore=${(s.picks[i].score ?? 0).toFixed(3)}`
         });
       }
     }
 
-    // 🔹 4. Normalisation globale si > 100 %
-    const total = target.reduce((a, b) => a + b.weight, 0);
-    if (total > 1) target.forEach(t => (t.weight = Number((t.weight / total).toFixed(4))));
+    // 3) Normalisation globale → somme EXACTE = 1 (si total > 0), sinon retour vide
+    let total = target.reduce((a, b) => a + b.weight, 0);
+    if (total > EPS) {
+      target.forEach(t => (t.weight = Number((t.weight / total).toFixed(4))));
+    } else {
+      return { target: [] };
+    }
+
+    // nettoyer -0.0000
+    target.forEach(t => {
+      if (Math.abs(t.weight) < EPS) t.weight = 0;
+    });
 
     return { target };
   }

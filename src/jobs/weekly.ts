@@ -4,6 +4,8 @@ import { RecommandateurSectoriel } from "../agents/recommandateur-sectoriel.js";
 import { StrategistePortefeuille } from "../agents/strategiste-portefeuille.js";
 import { RiskManager } from "../agents/risk-manager.js";
 import { AnalysteSectorielPro } from "../agents/analyste-sectoriel-pro.js"; // NEW
+import { AnalysteSecteurQuali } from "../agents/analyste-secteur-quali.js";
+import { ChercheurEntreprise } from "../agents/chercheur-entreprise.js";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -37,6 +39,15 @@ export async function runWeekly() {
     const picks = (rs.topN || []).map((t: any) => ({ symbol: t.symbol, change: t.change }));
     sectorsTop.push({ sector, picks });
     summary.push({ sector, top: picks.map((p: any) => `${p.symbol} (${(p.change ?? 0).toFixed(2)}%)`) });
+  }
+
+  // Analyse qualitative sectorielle (mock web)
+  await AnalysteSecteurQuali.handle({ sector });
+
+  // Recherche entreprises principales du secteur
+  const companies = asp.symbols.map(x => x.symbol);
+  for (const sym of companies) {
+    await ChercheurEntreprise.handle({ symbol: sym });
   }
 
   const alloc = await StrategistePortefeuille.handle({
