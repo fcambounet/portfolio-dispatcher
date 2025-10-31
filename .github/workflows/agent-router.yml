@@ -3,6 +3,11 @@ on:
   pull_request:
     types: [opened, synchronize, labeled]
 
+permissions:
+  contents: read         # lire le repo
+  pull-requests: write   # commenter / modifier PR
+  issues: write          # commenter (API issues/*)
+
 jobs:
   route:
     runs-on: ubuntu-latest
