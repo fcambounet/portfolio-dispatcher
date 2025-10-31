@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # portfolio-agents (starter compatible)
 
 Stack alignée avec ton autre projet : **Node 18 + TypeScript 5 + npm + tsx + GitHub Actions + Cloudflare Worker**.
@@ -28,3 +29,7 @@ Configurer les secrets via `wrangler secret put` (WEBHOOK_SECRET, GITHUB_TOKEN).
 - Ajouter ESLint/Prettier + Vitest
 - Connecteurs marché & scoring
 - Agents supplémentaires (IR, SP, RM, EXE, CQA)
+=======
+# portfolio-dispatcher
+Cabinet d'investissement
+>>>>>>> 7d0ef255fe021cfbebe1794232a8d57b05a0b4f8
