@@ -6,51 +6,70 @@ on:
 jobs:
   route:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 18
-      - run: npm ci
 
-      # 🚀 Lance le pipeline uniquement si le label est présent
-      - name: Generate weekly
+      - name: Install dependencies
+        run: npm ci
+
+      # 🧠 Lancement du cycle hebdo uniquement si le label est présent
+      - name: Generate weekly report
         if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
         run: npm run run:weekly
 
-      # 🖼️ Résumé visuel dans l'onglet "Summary" du run
-      - name: Build Job Summary (visual)
+      # 🖼️ Ajout d’un résumé visuel dans l’onglet "Summary"
+      - name: Visual summary
         if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
         shell: bash
         run: |
-          node -e "const fs=require('fs');
-          const p=JSON.parse(fs.readFileSync('data/portfolio.target.json','utf8'));
-          const s=JSON.parse(fs.readFileSync('data/weekly-summary.json','utf8'));
-          const rows=(p.target||[]).map(t=>`| ${t.symbol} | ${(t.weight*100).toFixed(2)}% |`).join('\n');
-          const sectors=(s.summary||[]).map(x=>`- **${x.sector}**: ${x.top.join(', ')}`).join('\n');
-          const md = `### Allocation cible\n\n**Statut risque:** **${p.riskStatus}**  \n\n| Symbole | Poids |\n|---|---|\n${rows}\n\n### Picks par secteur\n${sectors}\n`;
-          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);"
+          node -e "
+          const fs=require('fs');
+          const portfolio=JSON.parse(fs.readFileSync('data/portfolio.target.json','utf8'));
+          const summary=JSON.parse(fs.readFileSync('data/weekly-summary.json','utf8'));
+          const tableRows=(portfolio.target||[]).map(t=>`| ${t.symbol} | ${(t.weight*100).toFixed(2)}% |`).join('\\n');
+          const sectors=(summary.summary||[]).map(x=>`- **${x.sector}**: ${x.top.join(', ')}`).join('\\n');
+          const md = [
+            '## 📊 Portfolio Weekly Summary',
+            '',
+            `**Risque:** **${portfolio.riskStatus}**`,
+            '',
+            '| Symbole | Poids |',
+            '|---|---|',
+            tableRows,
+            '',
+            '### Picks par secteur',
+            sectors
+          ].join('\\n');
+          fs.writeFileSync(process.env.GITHUB_STEP_SUMMARY, md);
+          "
 
-      # 💬 Commentaire automatique sur la PR (optionnel mais pratique)
-      - name: Comment PR with summary
+      # 💬 (Optionnel) Commentaire automatique sur la PR
+      - name: Comment PR
         if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            const p = JSON.parse(fs.readFileSync('data/portfolio.target.json','utf8'));
-            const s = JSON.parse(fs.readFileSync('data/weekly-summary.json','utf8'));
-            const rows = (p.target||[]).map(t=>`| ${t.symbol} | ${(t.weight*100).toFixed(2)}% |`).join('\n');
-            const sectors=(s.summary||[]).map(x=>`- **${x.sector}**: ${x.top.join(', ')}`).join('\n');
+            const portfolio = JSON.parse(fs.readFileSync('data/portfolio.target.json','utf8'));
+            const summary = JSON.parse(fs.readFileSync('data/weekly-summary.json','utf8'));
+            const rows = (portfolio.target||[]).map(t=>`| ${t.symbol} | ${(t.weight*100).toFixed(2)}% |`).join('\n');
+            const sectors = (summary.summary||[]).map(x=>`- **${x.sector}**: ${x.top.join(', ')}`).join('\n');
             const body = [
-              '### 🔎 Résumé du cycle',
-              `**Risque:** **${p.riskStatus}**`,
+              '### 📊 Rapport Hebdo',
+              `**Risque:** **${portfolio.riskStatus}**`,
               '',
               '| Symbole | Poids |',
               '|---|---|',
               rows,
               '',
-              '#### Picks par secteur',
+              '### Picks par secteur',
               sectors
             ].join('\n');
             await github.rest.issues.createComment({
@@ -60,7 +79,7 @@ jobs:
               body
             });
 
-      # 📦 Artefacts téléchargeables
+      # 📦 Artefacts (pour télécharger les fichiers JSON)
       - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
