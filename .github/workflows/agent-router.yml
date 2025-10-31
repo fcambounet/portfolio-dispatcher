@@ -4,17 +4,18 @@ on:
     types: [opened, synchronize, labeled]
 
 permissions:
-  contents: read         # lire le repo
-  pull-requests: write   # commenter / modifier PR
-  issues: write          # commenter (API issues/*)
-  pages: write           # ← pour publier Pages
-  id-token: write        # ← requis par deploy-pages
+  contents: read
+  pull-requests: write
+  issues: write
+  pages: write
+  id-token: write
   actions: write
-  
+
 jobs:
   route:
     runs-on: ubuntu-latest
-
+    outputs:
+      published: ${{ steps.deploy-pages.outcome }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -27,59 +28,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # 🧠 Lancement du cycle hebdo uniquement si le label est présent
+      # 🧠 Génération du rapport
       - name: Generate weekly report
         if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
         run: npm run run:weekly
 
+      # 🧮 Cache pour les sparklines
       - name: Build sparkline cache
         if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
         run: npm run report:cache
 
+      # 🖼️ Rapports HTML
       - name: Build HTML report(s)
         if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
         run: npm run report:html
 
-      - name: Setup Pages
-        if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
-        uses: actions/configure-pages@v4
-
-      - name: Upload Pages artifact
-        if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: report
-
-      - name: Build HTML report
-        if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
-        run: npm run report:html
-
-      # Configure l'environnement GitHub Pages
-      - name: Setup Pages
-        if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
-        uses: actions/configure-pages@v4
-
-      # Upload le dossier 'report' comme artefact Pages
-      - name: Upload Pages artifact
-        if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: report
-
-      # Déploie vers GitHub Pages
-      - name: Deploy to GitHub Pages
-        if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
-        id: deployment
-        uses: actions/deploy-pages@v4
-
-      - name: Upload HTML report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: weekly-html
-          path: report/weekly-report.html
-
-      # 🖼️ Ajout d’un résumé visuel dans l’onglet "Summary"
+      # 📝 Résumé Markdown dans Summary
       - name: Visual summary
         if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
         shell: bash
@@ -88,8 +52,8 @@ jobs:
           const fs = require('fs');
           const p = JSON.parse(fs.readFileSync('data/portfolio.target.json','utf8'));
           const s = JSON.parse(fs.readFileSync('data/weekly-summary.json','utf8'));
-          const rows = (p.target||[]).map(t => `| ${t.symbol} | ${(t.weight*100).toFixed(2)}% |`).join('\n') || '| _Aucune ligne_ | 0% |';
-          const sectors = (s.summary||[]).map(x => `- **${x.sector}**: ${x.top.join(', ')}`).join('\n') || '_Aucun pick_';
+          const rows = (p.target||[]).map(t=>`| ${t.symbol} | ${(t.weight*100).toFixed(2)}% |`).join('\n') || '| _Aucune ligne_ | 0% |';
+          const sectors=(s.summary||[]).map(x=>`- **${x.sector}**: ${x.top.join(', ')}`).join('\n') || '_Aucun pick_';
           const md = [
             '## 📊 Portfolio Weekly Summary',
             '',
@@ -105,27 +69,31 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);
           NODE
 
-      # 💬 (Optionnel) Commentaire automatique sur la PR
-      - name: Comment PR
+      # 💬 Commentaire sur la PR
+      - name: Comment PR with summary
         if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            const portfolio = JSON.parse(fs.readFileSync('data/portfolio.target.json','utf8'));
-            const summary = JSON.parse(fs.readFileSync('data/weekly-summary.json','utf8'));
-            const rows = (portfolio.target||[]).map(t=>`| ${t.symbol} | ${(t.weight*100).toFixed(2)}% |`).join('\n');
-            const sectors = (summary.summary||[]).map(x=>`- **${x.sector}**: ${x.top.join(', ')}`).join('\n');
+            const p = JSON.parse(fs.readFileSync('data/portfolio.target.json','utf8'));
+            const s = JSON.parse(fs.readFileSync('data/weekly-summary.json','utf8'));
+            const rows = (p.target||[]).map(t=>`| ${t.symbol} | ${(t.weight*100).toFixed(2)}% |`).join('\n') || '| _Aucune ligne_ | 0% |';
+            const sectors=(s.summary||[]).map(x=>`- **${x.sector}**: ${x.top.join(', ')}`).join('\n') || '_Aucun pick_';
+            const base = `https://${context.repo.owner}.github.io/${context.repo.repo}`;
             const body = [
               '### 📊 Rapport Hebdo',
-              `**Risque:** **${portfolio.riskStatus}**`,
+              `**Risque:** **${p.riskStatus}**`,
               '',
               '| Symbole | Poids |',
               '|---|---|',
               rows,
               '',
               '### Picks par secteur',
-              sectors
+              sectors,
+              '',
+              `🔗 **HTML latest :** ${base}/weekly-report.html`,
+              `🗂️ **Historique :** ${base}/`
             ].join('\n');
             await github.rest.issues.createComment({
               owner: context.repo.owner,
@@ -134,38 +102,40 @@ jobs:
               body
             });
 
-      # 📦 Artefacts (pour télécharger les fichiers JSON)
-      - name: Upload artifacts
+      # 📄 Publication GitHub Pages (report/)
+      - name: Setup Pages
+        if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
+        uses: actions/configure-pages@v4
+
+      - name: Upload Pages artifact
+        if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: report
+
+      - name: Deploy to GitHub Pages
+        if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
+        id: deploy-pages
+        uses: actions/deploy-pages@v4
+
+  # 📦 Job séparé pour les artefacts JSON
+  store-json:
+    needs: route
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Upload artifacts (JSON)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: weekly-artifacts
+          name: weekly-artifacts-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             data/weekly-summary.json
             data/portfolio.target.json
             data/recos.jsonl
             data/exec.log.jsonl
-          overwrite: true
-
-      # 🧹 Purge les artefacts homonymes de CE run (évite le 409 Conflict)
-      - name: Purge existing artifacts for this run (only on re-run)
-        if: ${{ always() && github.run_attempt > 1 }}
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const run_id = context.runId;
-            const { data } = await github.rest.actions.listWorkflowRunArtifacts({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              run_id
-            });
-            for (const a of data.artifacts) {
-              if (a.name.startsWith('weekly-artifacts')) {
-                core.info(`Deleting artifact ${a.name} (id=${a.id})`);
-                await github.rest.actions.deleteArtifact({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  artifact_id: a.id
-                });
-              }
-            }
