@@ -7,7 +7,8 @@
     "run:weekly": "RUN=weekly tsx src/index.ts",
     "run:monthly": "RUN=monthly tsx src/index.ts",
     "worker:dev": "wrangler dev worker/index.ts",
-    "worker:deploy": "wrangler deploy worker/index.ts"
+    "worker:deploy": "wrangler deploy worker/index.ts",
+    "report:html": "tsx scripts/report.ts"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

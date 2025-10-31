@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="fr">
+<meta charset="utf-8"/>
+<title>Rapport Hebdo — Portefeuille</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<style>
+  :root { --bg:#0b1220; --card:#ffffff; --muted:#6b7280; }
+  body { margin:0; background:#f3f4f6; font:14px/1.5 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto; color:#0f172a; }
+  .wrap { max-width:980px; margin:32px auto; padding:0 16px; }
+  .card { background:#fff; border-radius:16px; box-shadow:0 1px 4px rgba(0,0,0,.08); padding:20px 22px; margin-bottom:16px; }
+  h1 { font-size:20px; margin:0 0 8px; }
+  h2 { font-size:16px; margin:16px 0 8px; }
+  .grid { display:grid; grid-template-columns:1.2fr .8fr; gap:16px; }
+  .badge { display:inline-block; padding:4px 10px; border-radius:999px; color:#fff; background:#16a34a; font-weight:600; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { padding:10px 8px; border-bottom:1px solid #e5e7eb; text-align:left; }
+  th { color:#374151; font-weight:600; background:#f8fafc; }
+  .muted{ color:#6b7280 }
+  footer{ color:#6b7280; font-size:12px; margin-top:4px}
+</style>
+<div class="wrap">
+  <div class="card">
+    <h1>📊 Rapport hebdo — Portefeuille</h1>
+    <div class="muted">Généré le 31/10/2025 13:24:08 • Données au 31/10/2025 11:47:18</div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Allocation cible <span class="badge">Risque : GREEN</span></h2>
+      <div style="overflow:auto; margin:8px 0 12px"><svg viewBox="0 0 640 172" width="640" height="172" role="img" aria-label="Allocation">
+    <rect width="100%" height="100%" fill="#fff"/>
+    
+      <text x="8" y="26" font-family="ui-sans-serif,system-ui" font-size="13">AAPL</text>
+      <rect x="160" y="14" width="220" height="14" rx="4" fill="#3b82f6"/>
+      <text x="386" y="26" font-family="ui-sans-serif,system-ui" font-size="12" fill="#111">5.00%</text>
+    
+      <text x="8" y="52" font-family="ui-sans-serif,system-ui" font-size="13">NVDA</text>
+      <rect x="160" y="40" width="220" height="14" rx="4" fill="#3b82f6"/>
+      <text x="386" y="52" font-family="ui-sans-serif,system-ui" font-size="12" fill="#111">5.00%</text>
+    
+      <text x="8" y="78" font-family="ui-sans-serif,system-ui" font-size="13">JNJ</text>
+      <rect x="160" y="66" width="220" height="14" rx="4" fill="#3b82f6"/>
+      <text x="386" y="78" font-family="ui-sans-serif,system-ui" font-size="12" fill="#111">5.00%</text>
+    
+      <text x="8" y="104" font-family="ui-sans-serif,system-ui" font-size="13">PFE</text>
+      <rect x="160" y="92" width="220" height="14" rx="4" fill="#3b82f6"/>
+      <text x="386" y="104" font-family="ui-sans-serif,system-ui" font-size="12" fill="#111">5.00%</text>
+    
+      <text x="8" y="130" font-family="ui-sans-serif,system-ui" font-size="13">CVX</text>
+      <rect x="160" y="118" width="220" height="14" rx="4" fill="#3b82f6"/>
+      <text x="386" y="130" font-family="ui-sans-serif,system-ui" font-size="12" fill="#111">5.00%</text>
+    
+      <text x="8" y="156" font-family="ui-sans-serif,system-ui" font-size="13">BP</text>
+      <rect x="160" y="144" width="220" height="14" rx="4" fill="#3b82f6"/>
+      <text x="386" y="156" font-family="ui-sans-serif,system-ui" font-size="12" fill="#111">5.00%</text>
+    
+  </svg></div>
+      <table>
+        <thead><tr><th>Symbole</th><th>Poids</th><th>Raison</th></tr></thead>
+        <tbody><tr><td>AAPL</td><td>5.00%</td><td>Top pick Technology change=0.63%</td></tr><tr><td>NVDA</td><td>5.00%</td><td>Top pick Technology change=-2.00%</td></tr><tr><td>JNJ</td><td>5.00%</td><td>Top pick Healthcare change=1.31%</td></tr><tr><td>PFE</td><td>5.00%</td><td>Top pick Healthcare change=0.00%</td></tr><tr><td>CVX</td><td>5.00%</td><td>Top pick Energy change=-1.02%</td></tr><tr><td>BP</td><td>5.00%</td><td>Top pick Energy change=-1.22%</td></tr></tbody>
+      </table>
+    </div>
+    <div>
+      <div class="card">
+        <h2>Picks par secteur</h2>
+        <ul style="margin:0; padding-left:18px"><li><b>Technology</b> : AAPL (0.63%), NVDA (-2.00%)</li><li><b>Healthcare</b> : JNJ (1.31%), PFE (0.00%)</li><li><b>Energy</b> : CVX (-1.02%), BP (-1.22%)</li></ul>
+      </div>
+      <div class="card">
+        <h2>Contrôles de risque</h2>
+        <p>—</p>
+      </div>
+    </div>
+  </div>
+
+  <footer class="wrap muted">© Rapport généré par pipeline portfolio-agents</footer>
+</div>
+</html>
