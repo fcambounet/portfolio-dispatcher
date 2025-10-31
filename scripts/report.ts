@@ -1,146 +1,204 @@
 // scripts/report.ts
 import fs from "node:fs";
 import path from "node:path";
-import { loadConfig } from "../src/core/config.js";
 
-type Target = { symbol: string; weight: number; reason?: string };
-type Portfolio = { asOf: string; target: Target[]; riskStatus: "GREEN"|"ORANGE"|"RED"; riskBreaches: string[] };
-type Weekly = { date: string; summary: Array<{ sector: string; top: string[] }> };
+/* ----------------------------- helpers ----------------------------- */
 
-// ---- util date ----
-const asDate = new Date().toISOString().slice(0,10); // YYYY-MM-DD
-
-// ---- data ----
-const p: Portfolio = JSON.parse(fs.readFileSync("data/portfolio.target.json","utf8"));
-const w: Weekly   = JSON.parse(fs.readFileSync("data/weekly-summary.json","utf8"));
-
-// Map symbol -> sector (via picks de la semaine)
-const symToSector = new Map<string,string>();
-for (const s of w.summary || []) {
-  for (const top of s.top || []) {
-    // top est "AAPL (1.23%)" → récupère symbole
-    const sym = (top.match(/^([A-Z.\-]+)/)?.[1]) || "";
-    if (sym) symToSector.set(sym, s.sector);
-  }
+function safeReadJSON<T = any>(p: string, fallback: T): T {
+  try {
+    if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, "utf8"));
+  } catch {}
+  return fallback;
 }
 
-// palette secteur
-const sectorColor: Record<string,string> = {
-  Technology:  "#3b82f6",
-  Healthcare:  "#10b981",
-  Energy:      "#f59e0b",
-  Default:     "#64748b"
-};
+function asISODate(d = new Date()) {
+  return new Date(d).toISOString().slice(0, 10);
+}
 
-// 💡 Chargement de la configuration YAML
-const cfg = loadConfig();
+function readSentiment(sector: string): "positive" | "neutral" | "negative" | "unknown" {
+  const p = path.join("data", "research", "analysis", `${sector}.json`);
+  const j = safeReadJSON(p, null as any);
+  return j?.sentiment ?? "unknown";
+}
 
-// 💡 Génère un petit encart HTML pour la visualiser dans le rapport
-const cfgHTML = `
-<details style="margin-top:1rem;padding:0.5rem;border:1px solid #ddd;border-radius:8px;">
-  <summary><b>Configuration active</b></summary>
-  <pre style="font-size:0.9em;background:#f9fafb;padding:0.5rem;border-radius:6px;overflow-x:auto;">
-${JSON.stringify(cfg, null, 2)}
-  </pre>
-</details>`;
+function readSeries(symbol: string): number[] {
+  const p = path.join("data", `series_${symbol}.json`);
+  const arr = safeReadJSON<number[]>(p, []);
+  return Array.isArray(arr) ? arr.filter((x) => Number.isFinite(x)) : [];
+}
 
-// --- assets: mini sparkline SVG ---
-function sparkline(values: number[], w=140, h=36, stroke="#111"): string {
-  if (!values.length) return `<svg width="${w}" height="${h}"></svg>`;
-  const min = Math.min(...values), max = Math.max(...values);
+function loadSectorMetricsMap(sectors: string[]) {
+  // Map symbole -> { chg5d, vol20 }
+  const map = new Map<string, { chg5d?: number; vol20?: number }>();
+  for (const s of sectors) {
+    const f = path.join("data", "sectors", `${s}.json`);
+    const j = safeReadJSON<any>(f, null as any);
+    const list: any[] = j?.symbols || [];
+    for (const m of list) {
+      if (!m?.symbol) continue;
+      map.set(m.symbol, { chg5d: m.chg5d, vol20: m.vol20 });
+    }
+  }
+  return map;
+}
+
+function sparkline(values: number[], w = 140, h = 36, stroke = "#334155") {
+  if (!values || values.length === 0) return `<svg width="${w}" height="${h}"></svg>`;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
   const range = max - min || 1;
-  const step = w / Math.max(1, values.length-1);
-  const pts = values.map((v,i)=>[Math.round(i*step), Math.round(h - ((v-min)/range)*h)]);
-  const d = pts.map(([x,y],i)=> (i?`L${x},${y}`:`M${x},${y}`)).join(" ");
+  const step = w / Math.max(1, values.length - 1);
+  const pts = values.map((v, i) => [Math.round(i * step), Math.round(h - ((v - min) / range) * h)]);
   return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">
-    <polyline fill="none" stroke="${stroke}" stroke-width="2" points="${pts.map(p=>p.join(",")).join(" ")}"/>
+    <polyline fill="none" stroke="${stroke}" stroke-width="2" points="${pts.map((p) => p.join(",")).join(" ")}"/>
   </svg>`;
 }
 
-// --- read cached closes if present (évitons les fetchs dans le script de rendu) ---
-function tryLoadSeries(symbol: string): number[] {
-  const cache = path.join("data", `series_${symbol}.json`);
-  if (!fs.existsSync(cache)) return [];
-  try { return JSON.parse(fs.readFileSync(cache,"utf8")); } catch { return []; }
-}
+const sectorColor: Record<string, string> = {
+  Technology: "#3b82f6",
+  Healthcare: "#10b981",
+  Energy: "#f59e0b",
+  Default: "#64748b",
+};
 
-// --- build weights + per-symbol visuals ---
-const weights = p.target.map(t => ({
-  label: t.symbol,
-  value: Math.round(t.weight*10000)/100, // %
-  sector: symToSector.get(t.symbol) || "Default"
-}));
-const maxW = Math.max(10, ...weights.map(x=>x.value));
-
-function barChartSVG(data: {label:string; value:number; sector:string}[]) {
-  const width = 660, rowH = 28, pad = 8;
-  const height = pad*2 + rowH*data.length;
-  const bars = data.map((d,i) => {
-    const y = pad + i*rowH;
-    const w = Math.round((d.value/maxW) * (width-220));
-    const color = sectorColor[d.sector] || sectorColor.Default;
-    return `
-      <text x="8" y="${y+18}" font-family="ui-sans-serif,system-ui" font-size="13">${d.label}</text>
-      <rect x="180" y="${y+6}" width="${w}" height="14" rx="4" fill="${color}"/>
-      <text x="${180+w+6}" y="${y+18}" font-family="ui-sans-serif,system-ui" font-size="12" fill="#111">${d.value.toFixed(2)}%</text>
+function barChartSVG(data: { label: string; value: number; sector: string }[]) {
+  const width = 660,
+    rowH = 28,
+    pad = 8;
+  const height = pad * 2 + rowH * data.length;
+  const maxV = Math.max(10, ...data.map((d) => d.value));
+  const bars = data
+    .map((d, i) => {
+      const y = pad + i * rowH;
+      const w = Math.round((d.value / maxV) * (width - 220));
+      const color = sectorColor[d.sector] || sectorColor.Default;
+      return `
+      <text x="8" y="${y + 18}" font-family="ui-sans-serif,system-ui" font-size="13">${d.label}</text>
+      <rect x="180" y="${y + 6}" width="${w}" height="14" rx="4" fill="${color}"/>
+      <text x="${180 + w + 6}" y="${y + 18}" font-family="ui-sans-serif,system-ui" font-size="12" fill="#111">${d.value.toFixed(2)}%</text>
     `;
-  }).join("");
+    })
+    .join("");
   return `<svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="img" aria-label="Allocation">
     <rect width="100%" height="100%" fill="#fff"/>${bars}
   </svg>`;
 }
 
-const riskColor = p.riskStatus === "GREEN" ? "#16a34a" : p.riskStatus === "ORANGE" ? "#f59e0b" : "#dc2626";
-const rows = p.target
-  .sort((a,b)=>b.weight-a.weight)
-  .map(t => {
-    // On tente de retrouver le secteur et les métriques depuis l’analyse (si présente)
-    const sector = symToSector.get(t.symbol) || "—";
-    const closes = tryLoadSeries(t.symbol);
-    const svg = sparkline(closes.slice(-30), 140, 36, "#334155");
+function parseScoreFromReason(reason?: string): number | undefined {
+  if (!reason) return undefined;
+  // Cherche d'abord PickScore=..., sinon Score=...
+  const m1 = reason.match(/PickScore=([+-]?\d+(\.\d+)?)/);
+  if (m1) return Number(m1[1]);
+  const m2 = reason.match(/Score=([+-]?\d+(\.\d+)?)/);
+  if (m2) return Number(m2[1]);
+  return undefined;
+}
 
-    // NEW: rechercher les métriques du symbole dans les analyses par secteur
-    let chg5d: number | undefined;
-    let vol20: number | undefined;
-    let score: number | undefined;
-    for (const s of (w.summary || [])) {
-      const sectorPath = path.join("data","sectors", `${s.sector}.json`);
-      if (fs.existsSync(sectorPath)) {
-        try {
-          const json = JSON.parse(fs.readFileSync(sectorPath,"utf8"));
-          const m = (json.symbols || []).find((x:any)=>x.symbol===t.symbol);
-          if (m) { chg5d = m.chg5d; vol20 = m.vol20; /* score non stocké ici */ }
-        } catch {}
+/* ----------------------------- chargement données ----------------------------- */
+
+// weekly-summary contient: { asOf, sectors:[{sector, top:[...] }], risk, target }
+const weekly = safeReadJSON<any>(path.join("data", "weekly-summary.json"), null as any);
+
+// Fallback si besoin
+const targetFallback = safeReadJSON<any>(path.join("data", "portfolio.target.json"), []);
+const riskFallback = safeReadJSON<any>(path.join("data", "portfolio.risk.json"), null as any);
+
+// Source des cibles
+const target: Array<{ symbol: string; weight: number; reason?: string }> =
+  Array.isArray(weekly?.target) ? weekly.target : Array.isArray(targetFallback) ? targetFallback : [];
+
+// Risk status
+const riskStatus: string =
+  weekly?.risk?.status ?? riskFallback?.status ?? "UNKNOWN";
+
+// Date de référence
+const asOf: string = weekly?.asOf ?? new Date().toISOString();
+
+// Secteurs présents (pour badges + métriques)
+const sectorEntries: Array<{ sector: string; top?: string[] }> = Array.isArray(weekly?.sectors)
+  ? weekly.sectors
+  : [];
+
+const sectorsUnique = Array.from(new Set(sectorEntries.map((s) => s.sector)));
+const symToSector = new Map<string, string>();
+for (const s of sectorEntries) {
+  for (const top of s.top || []) {
+    const sym = top.match(/^([A-Z.\-]+)/)?.[1];
+    if (sym) symToSector.set(sym, s.sector);
+  }
+}
+// au cas où aucun mapping via summary → déduire secteur via présence dans fichiers
+for (const t of target) {
+  if (!symToSector.has(t.symbol)) {
+    // essaie naïvement: choisis le premier secteur existant contenant le symbole
+    for (const sec of sectorsUnique) {
+      const file = path.join("data", "sectors", `${sec}.json`);
+      const j = safeReadJSON<any>(file, null as any);
+      if (j?.symbols?.some((x: any) => x.symbol === t.symbol)) {
+        symToSector.set(t.symbol, sec);
+        break;
       }
     }
-    // on peut parse le "reason" (ex. "Score=…") pour remonter le score
-    const match = (t.reason || "").match(/Score=([+-]?\d+(\.\d+)?)/);
-    if (match) score = Number(match[1]);
+    if (!symToSector.has(t.symbol)) symToSector.set(t.symbol, "Default");
+  }
+}
 
+// Map symbole -> métriques (chg5d, vol20)
+const metricsMap = loadSectorMetricsMap(sectorsUnique);
+
+/* ----------------------------- rendu ----------------------------- */
+
+const riskColor =
+  riskStatus === "GREEN" ? "#16a34a" : riskStatus === "ORANGE" || riskStatus === "YELLOW" ? "#f59e0b" : riskStatus === "RED" ? "#dc2626" : "#64748b";
+
+const weights = target
+  .map((t) => ({
+    label: t.symbol,
+    value: Math.round((t.weight || 0) * 10000) / 100, // en %
+    sector: symToSector.get(t.symbol) || "Default",
+  }))
+  .sort((a, b) => b.value - a.value);
+
+const tableRows = target
+  .slice()
+  .sort((a, b) => (b.weight || 0) - (a.weight || 0))
+  .map((t) => {
+    const sector = symToSector.get(t.symbol) || "—";
+    const closes = readSeries(t.symbol);
+    const svg = sparkline(closes.slice(-30), 140, 36, "#334155");
+    const m = metricsMap.get(t.symbol) || {};
+    const score = parseScoreFromReason(t.reason);
     return `<tr>
       <td>${t.symbol}</td>
-      <td>${(t.weight*100).toFixed(2)}%</td>
+      <td>${((t.weight || 0) * 100).toFixed(2)}%</td>
       <td>${sector}</td>
       <td>${svg}</td>
-      <td>${(chg5d ?? 0).toFixed(2)}%</td>
-      <td>${(vol20 ?? 0).toFixed(3)}</td>
-      <td>${(score ?? 0).toFixed(3)}</td>
+      <td>${Number.isFinite(m.chg5d) ? (m.chg5d as number).toFixed(2) + "%" : "—"}</td>
+      <td>${Number.isFinite(m.vol20) ? (m.vol20 as number).toFixed(3) : "—"}</td>
+      <td>${Number.isFinite(score as number) ? (score as number).toFixed(3) : "—"}</td>
       <td>${t.reason ?? ""}</td>
     </tr>`;
   })
   .join("");
 
-const sectorsList = (w.summary||[])
-  .map(s => `<li><b>${s.sector}</b> : ${s.top.join(", ") || "—"}</li>`)
+// Badges de sentiment sectoriel
+const sectorBadges = sectorsUnique
+  .map((sec) => {
+    const sent = readSentiment(sec);
+    const color = sent === "positive" ? "#16a34a" : sent === "negative" ? "#dc2626" : "#6b7280";
+    return `<span style="display:inline-block;margin:4px 8px 0 0;padding:4px 8px;border-radius:999px;background:${color};color:#fff;font-size:12px">
+      ${sec}: ${sent.toUpperCase()}
+    </span>`;
+  })
   .join("");
 
-const breaches = p.riskBreaches?.length
-  ? `<ul>${p.riskBreaches.map(b=>`<li>${b}</li>`).join("")}</ul>`
-  : "<p>—</p>";
+// total poids pour contrôle
+const totalPct = (target.reduce((a, b) => a + (b.weight || 0), 0) * 100).toFixed(2);
 
+// HTML complet
 const html = `<!doctype html>
 <html lang="fr"><meta charset="utf-8"/>
-<title>Rapport Hebdo — Portefeuille (${asDate})</title>
+<title>Rapport Hebdo — Portefeuille (${asISODate(asOf)})</title>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <style>
   body { margin:0; background:#f3f4f6; font:14px/1.5 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto; color:#0f172a; }
@@ -160,15 +218,16 @@ const html = `<!doctype html>
 </style>
 <div class="wrap">
   <div class="card">
-    <h1>📊 Rapport hebdo — Portefeuille <span class="badge">Risque : ${p.riskStatus}</span></h1>
-    <div class="muted">Généré le ${new Date().toLocaleString("fr-FR")} • Données au ${new Date(p.asOf).toLocaleString("fr-FR")}</div>
-    ${cfgHTML}
+    <h1>📊 Rapport hebdo — Portefeuille <span class="badge">Risque : ${riskStatus}</span></h1>
+    <div class="muted">Généré le ${new Date().toLocaleString("fr-FR")} • Données au ${new Date(asOf).toLocaleString("fr-FR")} • Total=${totalPct}%</div>
     <div class="legend" style="margin-top:8px">
       <span class="tech">Technology</span>
       <span class="health">Healthcare</span>
       <span class="energy">Energy</span>
     </div>
   </div>
+
+  ${sectorBadges ? `<div class="card"><h2>Sentiment sectoriel</h2><div>${sectorBadges}</div></div>` : ""}
 
   <div class="grid">
     <div class="card">
@@ -181,17 +240,36 @@ const html = `<!doctype html>
             <th>chg5d</th><th>vol20</th><th>score</th><th>Raison</th>
           </tr>
         </thead>
-        <tbody>${rows || '<tr><td colspan="5" class="muted">Aucune ligne</td></tr>'}</tbody>
+        <tbody>${tableRows || '<tr><td colspan="8" class="muted">Aucune ligne</td></tr>'}</tbody>
       </table>
     </div>
     <div>
       <div class="card">
         <h2>Picks par secteur</h2>
-        <ul style="margin:0; padding-left:18px">${sectorsList || "<li class='muted'>—</li>"}</ul>
+        <ul style="margin:0; padding-left:18px">
+          ${
+            sectorEntries.length
+              ? sectorEntries
+                  .map(
+                    (s) =>
+                      `<li><b>${s.sector}</b> : ${(s.top || []).join(", ") || "—"}</li>`
+                  )
+                  .join("")
+              : "<li class='muted'>—</li>"
+          }
+        </ul>
       </div>
       <div class="card">
         <h2>Contrôles de risque</h2>
-        ${breaches}
+        ${
+          weekly?.risk
+            ? `<ul>
+                 <li>Status: <b>${weekly.risk.status}</b></li>
+                 <li>Volatility: ${weekly.risk.volatility}</li>
+                 <li>Concentration: ${weekly.risk.concentration}</li>
+               </ul>`
+            : "<p>—</p>"
+        }
       </div>
     </div>
   </div>
@@ -200,22 +278,34 @@ const html = `<!doctype html>
 </div>
 </html>`;
 
-// sortie : un fichier daté + "latest"
+/* ----------------------------- sorties ----------------------------- */
+
 fs.mkdirSync("report", { recursive: true });
-const dated = path.join("report", `weekly-report-${asDate}.html`);
+const dated = path.join("report", `weekly-report-${asISODate()}.html`);
 const latest = path.join("report", "weekly-report.html");
 fs.writeFileSync(dated, html);
 fs.writeFileSync(latest, html);
 
-// index: liste les rapports (simples liens)
-const files = fs.readdirSync("report").filter(f => /^weekly-report-\d{4}-\d{2}-\d{2}\.html$/.test(f)).sort().reverse();
-const links = files.map(f => `<li><a href="./${f}">${f.replace("weekly-report-","").replace(".html","")}</a></li>`).join("");
+// index: liste liens des rapports datés
+const files = fs
+  .readdirSync("report")
+  .filter((f) => /^weekly-report-\d{4}-\d{2}-\d{2}\.html$/.test(f))
+  .sort()
+  .reverse();
+
+const links = files
+  .map(
+    (f) =>
+      `<li><a href="./${f}">${f.replace("weekly-report-", "").replace(".html", "")}</a></li>`
+  )
+  .join("");
+
 const index = `<!doctype html><meta charset="utf-8"><title>Rapports hebdo</title>
 <link rel="stylesheet" href="https://unpkg.com/modern-css-reset/dist/reset.min.css">
 <style>body{font:16px/1.5 system-ui;padding:24px;max-width:720px;margin:0 auto;color:#0f172a}h1{font-size:22px}</style>
 <h1>Rapports hebdomadaires</h1>
 <p><a href="./weekly-report.html">Dernier (latest)</a></p>
 <ul>${links}</ul>`;
-fs.writeFileSync(path.join("report","index.html"), index);
+fs.writeFileSync(path.join("report", "index.html"), index);
 
 console.log("Report written:", dated, "and latest:", latest);

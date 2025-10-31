@@ -1,76 +1,101 @@
-import { appendJSONL } from "../core/io.js";
-import { AnalysteSectoriel } from "../agents/analyste-sectoriel.js";
-import { RecommandateurSectoriel } from "../agents/recommandateur-sectoriel.js";
-import { StrategistePortefeuille } from "../agents/strategiste-portefeuille.js";
-import { RiskManager } from "../agents/risk-manager.js";
-import { AnalysteSectorielPro } from "../agents/analyste-sectoriel-pro.js"; // NEW
-import { AnalysteSecteurQuali } from "../agents/analyste-secteur-quali.js";
-import { ChercheurEntreprise } from "../agents/chercheur-entreprise.js";
 import fs from "node:fs";
 import path from "node:path";
 
+import { AnalysteSectoriel } from "../agents/analyste-sectoriel.js";
+import { AnalysteSectorielPro } from "../agents/analyste-sectoriel-pro.js";
+import { AnalysteSecteurQuali } from "../agents/analyste-secteur-quali.js";
+import { AnalyseurQuali } from "../agents/analyseur-quali.js";
+import { ChercheurEntreprise } from "../agents/chercheur-entreprise.js";
+import { RecommandateurSectoriel } from "../agents/recommandateur-sectoriel.js";
+import { StrategistePortefeuille } from "../agents/strategiste-portefeuille.js";
+import { RiskManager } from "../agents/risk-manager.js";
+
 import { loadConfig } from "../core/config.js";
-const cfg = loadConfig();
-const SECTORS = cfg.sectors.map(s => s.name);
-const CONSTRAINTS = cfg.constraints;
+import { appendJSONL } from "../core/io.js";
 
 export async function runWeekly() {
+  console.log("🏁 Starting weekly cycle...");
+
+  const cfg = loadConfig();
+  const SECTORS = cfg.sectors.map(s => s.name);
+  const CONSTRAINTS = cfg.constraints;
+
+  fs.mkdirSync("data", { recursive: true });
+  fs.mkdirSync(path.join("data", "sectors"), { recursive: true });
+  fs.mkdirSync(path.join("data", "research", "sectors"), { recursive: true });
+  fs.mkdirSync(path.join("data", "research", "companies"), { recursive: true });
+
   const summary: any[] = [];
   const sectorsTop: any[] = [];
 
-  // Assure l'arborescence des analyses
-  fs.mkdirSync(path.join("data", "sectors"), { recursive: true }); // NEW
-
+  // === Boucle principale par secteur ===
   for (const sector of SECTORS) {
-    // Analyse "simple" existante (historique du pipeline)
+    console.log(`\n📈 Analyse du secteur ${sector}...`);
+
+    // Analyse sectorielle simple (baseline)
     const as = await AnalysteSectoriel.handle({ sector });
 
-    // Analyse "pro" détaillée (nouvel agent)
-    const asp = await AnalysteSectorielPro.handle({ sector }); // NEW
-    fs.writeFileSync( // NEW
+    // Analyse sectorielle pro (quant)
+    const asp = await AnalysteSectorielPro.handle({ sector });
+    fs.writeFileSync(
       path.join("data", "sectors", `${sector}.json`),
       JSON.stringify(asp, null, 2),
       "utf8"
     );
 
+    // Analyse qualitative sectorielle (mock web)
+    await AnalysteSecteurQuali.handle({ sector });
+    await AnalyseurQuali.handle({ sector }); // ← AJOUT
+
+    // Recherche des entreprises principales du secteur
+    const companies = (asp.symbols || []).map((x: any) => x.symbol);
+    for (const sym of companies) {
+      await ChercheurEntreprise.handle({ symbol: sym });
+    }
+
+    // Recommandations sur le secteur
     const rs = await RecommandateurSectoriel.handle({ sector });
-    appendJSONL("recos.jsonl", { sector, as, asp, rs }); // inclut asp
+    appendJSONL("recos.jsonl", { sector, as, asp, rs });
 
-    const picks = (rs.topN || []).map((t: any) => ({ symbol: t.symbol, change: t.change }));
+    // Sélection des picks top N
+    const picks = (rs.topN || []).map((t: any) => ({
+      symbol: t.symbol,
+      change: t.change,
+      score: t.score
+    }));
     sectorsTop.push({ sector, picks });
-    summary.push({ sector, top: picks.map((p: any) => `${p.symbol} (${(p.change ?? 0).toFixed(2)}%)`) });
+
+    summary.push({
+      sector,
+      top: picks.map((p: any) =>
+        `${p.symbol}${Number.isFinite(p.score) ? ` (score ${p.score.toFixed(2)})` : ""}`
+      )
+    });
   }
 
-  // Analyse qualitative sectorielle (mock web)
-  await AnalysteSecteurQuali.handle({ sector });
-
-  // Recherche entreprises principales du secteur
-  const companies = asp.symbols.map(x => x.symbol);
-  for (const sym of companies) {
-    await ChercheurEntreprise.handle({ symbol: sym });
-  }
-
-  const alloc = await StrategistePortefeuille.handle({
+  // === Allocation portefeuille ===
+  console.log("\n🧮 Allocation du portefeuille...");
+  const { target } = await StrategistePortefeuille.handle({
     sectors: sectorsTop,
-    constraints: { maxLine: CONSTRAINTS.maxLine, maxSector: CONSTRAINTS.maxSector }
+    constraints: CONSTRAINTS
   });
 
-  const risk = await RiskManager.handle({
-    target: alloc.target,
-    limits: { maxLine: CONSTRAINTS.maxLine, maxSector: CONSTRAINTS.maxSector }
-  });
+  fs.writeFileSync("data/portfolio.target.json", JSON.stringify(target, null, 2), "utf8");
 
-  const portfolio = {
+  // === Gestion du risque ===
+  console.log("🛡️  Analyse du risque...");
+  const risk = await RiskManager.handle({ target });
+  fs.writeFileSync("data/portfolio.risk.json", JSON.stringify(risk, null, 2), "utf8");
+
+  // === Résumé final ===
+  const report = {
     asOf: new Date().toISOString(),
-    target: alloc.target,
-    riskStatus: risk.status,
-    riskBreaches: risk.breaches
+    sectors: summary,
+    risk,
+    target
   };
+  fs.writeFileSync("data/weekly-summary.json", JSON.stringify(report, null, 2), "utf8");
 
-  fs.mkdirSync("data", { recursive: true });
-  fs.writeFileSync("data/weekly-summary.json", JSON.stringify({ date: portfolio.asOf, summary }, null, 2));
-  fs.writeFileSync("data/portfolio.target.json", JSON.stringify(portfolio, null, 2));
-  appendJSONL("exec.log.jsonl", { action: "weekly.completed" });
-
-  console.log("✅ Weekly report generated. Risk:", risk.status, risk.breaches);
+  console.log("✅ Weekly report generated.");
+  return report;
 }

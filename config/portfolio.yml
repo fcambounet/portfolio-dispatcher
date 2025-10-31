@@ -22,3 +22,9 @@ scoring:
 risk:
   targetVol: 0.20
   maxDrawdown: 0.10
+
+qualitative:
+  sentimentMultipliers:
+    positive: 1.10   # +10%
+    neutral: 1.00
+    negative: 0.90   # -10%
