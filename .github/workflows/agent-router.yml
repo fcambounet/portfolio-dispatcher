@@ -29,26 +29,26 @@ jobs:
         if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
         shell: bash
         run: |
-          node -e "
-          const fs=require('fs');
-          const portfolio=JSON.parse(fs.readFileSync('data/portfolio.target.json','utf8'));
-          const summary=JSON.parse(fs.readFileSync('data/weekly-summary.json','utf8'));
-          const tableRows=(portfolio.target||[]).map(t=>`| ${t.symbol} | ${(t.weight*100).toFixed(2)}% |`).join('\\n');
-          const sectors=(summary.summary||[]).map(x=>`- **${x.sector}**: ${x.top.join(', ')}`).join('\\n');
+          node <<'NODE'
+          const fs = require('fs');
+          const p = JSON.parse(fs.readFileSync('data/portfolio.target.json','utf8'));
+          const s = JSON.parse(fs.readFileSync('data/weekly-summary.json','utf8'));
+          const rows = (p.target||[]).map(t => `| ${t.symbol} | ${(t.weight*100).toFixed(2)}% |`).join('\n') || '| _Aucune ligne_ | 0% |';
+          const sectors = (s.summary||[]).map(x => `- **${x.sector}**: ${x.top.join(', ')}`).join('\n') || '_Aucun pick_';
           const md = [
             '## 📊 Portfolio Weekly Summary',
             '',
-            `**Risque:** **${portfolio.riskStatus}**`,
+            `**Risque:** **${p.riskStatus}**`,
             '',
             '| Symbole | Poids |',
             '|---|---|',
-            tableRows,
+            rows,
             '',
             '### Picks par secteur',
             sectors
-          ].join('\\n');
-          fs.writeFileSync(process.env.GITHUB_STEP_SUMMARY, md);
-          "
+          ].join('\n');
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);
+          NODE
 
       # 💬 (Optionnel) Commentaire automatique sur la PR
       - name: Comment PR
