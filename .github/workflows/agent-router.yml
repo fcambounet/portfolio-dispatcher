@@ -138,10 +138,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: weekly-artifacts
+          name: weekly-artifacts-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             data/weekly-summary.json
             data/portfolio.target.json
             data/recos.jsonl
             data/exec.log.jsonl
-          overwrite: true
