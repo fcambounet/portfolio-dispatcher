@@ -9,6 +9,7 @@ import { ChercheurEntreprise } from "../agents/chercheur-entreprise.js";
 import { RecommandateurSectoriel } from "../agents/recommandateur-sectoriel.js";
 import { StrategistePortefeuille } from "../agents/strategiste-portefeuille.js";
 import { RiskManager } from "../agents/risk-manager.js";
+import { initLedger, markToMarket, rebalance } from "../core/backtest.js";
 
 import { loadConfig } from "../core/config.js";
 import { appendJSONL } from "../core/io.js";
@@ -95,6 +96,13 @@ export async function runWeekly() {
     target
   };
   fs.writeFileSync("data/weekly-summary.json", JSON.stringify(report, null, 2), "utf8");
+
+  // ——— Backtest hebdo (PnL virtuel & journal trades) ———
+  const runDate = new Date().toISOString().slice(0,10);
+  await initLedger(10000, runDate);               // crée ledger si absent
+  await markToMarket(runDate);                    // évalue avant rebalance (lecture cash)
+  const trades = await rebalance(target, runDate); // exécute vers l’allocation cible
+  console.log(`🧾 Trades exécutés: ${trades.length}`);
 
   console.log("✅ Weekly report generated.");
   return report;

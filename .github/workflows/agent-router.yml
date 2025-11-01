@@ -14,6 +14,8 @@ permissions:
 jobs:
   route:
     runs-on: ubuntu-latest
+    env:
+      WEB_SEARCH_KEY: ${{ secrets.WEB_SEARCH_KEY }}
     outputs:
       published: ${{ steps.deploy-pages.outcome }}
     steps:
@@ -32,6 +34,8 @@ jobs:
       - name: Generate weekly report
         if: contains(join(toJson(github.event.pull_request.labels)), 'run:portfolio')
         run: npm run run:weekly
+        env:
+          WEB_SEARCH_KEY: ${{ secrets.WEB_SEARCH_KEY }}
 
       # 🧮 Cache pour les sparklines
       - name: Build sparkline cache
@@ -139,3 +143,13 @@ jobs:
             data/portfolio.target.json
             data/recos.jsonl
             data/exec.log.jsonl
+
+- name: Upload ledger artifacts
+  if: always()
+  uses: actions/upload-artifact@v4
+  with:
+    name: ledger-${{ github.run_id }}-${{ github.run_attempt }}
+    path: |
+      data/ledger/nav.csv
+      data/ledger/trades.csv
+      data/ledger/positions.json

@@ -9,7 +9,8 @@
     "worker:dev": "wrangler dev worker/index.ts",
     "worker:deploy": "wrangler deploy worker/index.ts",
     "report:cache": "tsx scripts/cache-series.ts",
-    "report:html": "tsx scripts/report.ts"
+    "report:html": "tsx scripts/report.ts",
+    "weekly:all": "npm run run:weekly && npm run report:cache && npm run report:html"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

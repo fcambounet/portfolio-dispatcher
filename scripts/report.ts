@@ -94,6 +94,36 @@ function parseScoreFromReason(reason?: string): number | undefined {
   return undefined;
 }
 
+function readCSV(p: string): string[][] {
+  if (!fs.existsSync(p)) return [];
+  const lines = fs.readFileSync(p, "utf8").trim().split("\n");
+  return lines.slice(1).map(l => l.split(","));
+}
+
+function lineChartSVG(points: {x:string,y:number,y2?:number}[], w=660, h=180) {
+  if (!points.length) return `<svg width="${w}" height="${h}"></svg>`;
+  const xs = points.map((p,i)=>i);
+  const ys = points.map(p=>p.y);
+  const y2s = points.map(p=>p.y2 ?? NaN).filter(n=>Number.isFinite(n)) as number[];
+
+  const minY = Math.min(...ys, ...(y2s.length?y2s:[Infinity]));
+  const maxY = Math.max(...ys, ...(y2s.length?y2s:[-Infinity]));
+  const rangeY = maxY - minY || 1;
+  const stepX = w / Math.max(1, points.length - 1);
+
+  const poly = (arr:number[]) =>
+    arr.map((v,i)=>`${Math.round(i*stepX)},${Math.round(h - ((v - minY)/rangeY)*h)}`).join(" ");
+
+  const navPts = poly(ys);
+  const benchPts = y2s.length ? poly(points.map(p=>p.y2 ?? NaN)) : "";
+
+  return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">
+    <rect width="100%" height="100%" fill="#fff"/>
+    ${benchPts ? `<polyline fill="none" stroke="#9ca3af" stroke-width="2" points="${benchPts}"/>` : ""}
+    <polyline fill="none" stroke="#2563eb" stroke-width="2" points="${navPts}"/>
+  </svg>`;
+}
+
 /* ----------------------------- chargement données ----------------------------- */
 
 // weekly-summary contient: { asOf, sectors:[{sector, top:[...] }], risk, target }
@@ -127,6 +157,23 @@ for (const s of sectorEntries) {
     if (sym) symToSector.set(sym, s.sector);
   }
 }
+
+const navRows = readCSV(path.join("data","ledger","nav.csv"));
+const navPoints = navRows.map(r => ({ x: r[0], y: Number(r[1]||"0"), y2: Number(r[4]||"") }));
+const tradesRows = readCSV(path.join("data","ledger","trades.csv"));
+const lastTrades = tradesRows.filter(r => r[0] === asISODate(asOf));
+
+// Cash & NAV courants (depuis la dernière ligne de nav.csv)
+const lastNavRow = navRows.length ? navRows[navRows.length - 1] : null;
+// nav.csv: date,nav,cash,value,benchmark
+const currentNAV  = lastNavRow ? Number(lastNavRow[1] || "0") : 0;
+const currentCash = lastNavRow ? Number(lastNavRow[2] || "0") : 0;
+const cashPct     = currentNAV > 0 ? (currentCash / currentNAV) * 100 : 0;
+
+function fmt(n: number) {
+  return n.toLocaleString("fr-FR", { maximumFractionDigits: 2 });
+}
+
 // au cas où aucun mapping via summary → déduire secteur via présence dans fichiers
 for (const t of target) {
   if (!symToSector.has(t.symbol)) {
@@ -229,6 +276,20 @@ const html = `<!doctype html>
 
   ${sectorBadges ? `<div class="card"><h2>Sentiment sectoriel</h2><div>${sectorBadges}</div></div>` : ""}
 
+  <div class="card">
+    <h2>Évolution NAV (Portefeuille vs Benchmark)</h2>
+    <div style="overflow:auto; margin:8px 0 4px">${lineChartSVG(navPoints)}</div>
+    <div class="muted">Bleu = NAV portefeuille • Gris = Benchmark (base 100)</div>
+  </div>
+
+  <div class="card">
+    <h2>Cash restant</h2>
+    <p style="margin:6px 0 0">
+      Trésorerie disponible : <b>${fmt(currentCash)}</b>
+      (<span class="muted">${fmt(cashPct)}% de la NAV</span>)
+    </p>
+  </div>
+
   <div class="grid">
     <div class="card">
       <h2>Allocation cible</h2>
@@ -269,6 +330,19 @@ const html = `<!doctype html>
                  <li>Concentration: ${weekly.risk.concentration}</li>
                </ul>`
             : "<p>—</p>"
+        }
+      </div>
+      <div class="card">
+        <h2>Trades de la semaine</h2>
+        ${
+          lastTrades.length
+            ? `<table><thead><tr><th>Symbole</th><th>Qté</th><th>Px</th><th>Valeur</th></tr></thead>
+                <tbody>${
+                  lastTrades.map(r =>
+                    `<tr><td>${r[1]}</td><td>${Number(r[2]).toFixed(4)}</td><td>${Number(r[3]).toFixed(2)}</td><td>${Number(r[4]).toFixed(2)}</td></tr>`
+                  ).join("")
+                }</tbody></table>`
+            : `<p class="muted">Aucun trade ce jour (${asISODate(asOf)}).</p>`
         }
       </div>
     </div>
