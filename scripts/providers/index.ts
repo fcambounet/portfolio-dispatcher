@@ -1,10 +1,11 @@
-import "dotenv/config";
+// en haut des imports
+import yaml from "js-yaml";
 import fs from "node:fs";
 import path from "node:path";
-import yaml from "js-yaml";
-import { stooqSeries } from "./stooq.js";
-import { avSeriesSmartFRCached } from "./alpha-vantage.js";
 
+// ... (fichier existant)
+
+// ajoute ce helper si pas déjà présent
 function readYAML<T=any>(p: string, fb: T): T {
   try { if (fs.existsSync(p)) return yaml.load(fs.readFileSync(p, "utf8")) as T; } catch {}
   return fb;
@@ -14,37 +15,27 @@ export async function fetchSeriesFor(symbol: string): Promise<{ used: string, da
   const cfg = readYAML<any>(path.join("config","portfolio.yml"), {});
   const src = (cfg.market?.source || "mixed").toLowerCase();
 
-  const avCfg = cfg.providers?.alphaVantage || {};
-  const keyEnv = avCfg.keyEnv || "ALPHA_VANTAGE_KEY";
-  const key = process.env[keyEnv] || "";
-  const cacheDir = avCfg.cache?.dir || "data/_cache/alpha";
-  const ttlDays = Number(avCfg.cache?.ttlDays ?? 7);
-  const outputSize = (avCfg.outputSize || "compact") as "compact"|"full";
-  const minDelayMs = Number(avCfg.minDelayMs ?? 15000);
-
-  const mapCfg = readYAML<any>(path.join("config","alpha-symbols.yml"), {});
-  const pinned: Record<string,string> = mapCfg?.map || {};
-
   if (symbol.startsWith("^")) {
     const data = await stooqSeries(symbol);
     return { used: symbol, data };
   }
 
-  if (src === "alphavantage" || src === "mixed") {
-    if (!key) {
-      console.warn("[AlphaVantage] No API key in env. Set ALPHA_VANTAGE_KEY or use .env.");
-      return { used: symbol, data: [] };
-    }
-    const avSymbol = pinned[symbol.toUpperCase()] || symbol;  // 👈 utilise le map si dispo
-    const out = await avSeriesSmartFRCached(avSymbol, key, outputSize, minDelayMs, cacheDir, ttlDays);
-    if (out.data.length) return out;
+  if (src === "mixed" || src === "yahoo") {
+    const ycfg = cfg.providers?.yahoo || {};
 
-    // fallback éventuel Stooq
-    try {
-      const data = await stooqSeries(symbol);
-      if (data.length) return { used: symbol, data };
-    } catch {}
-    return out;
+    // 🔹 NOUVEAU: alias Yahoo
+    const ymap = readYAML<any>(path.join("config","yahoo-symbols.yml"), {});
+    const aliasMap: Record<string,string> = ymap?.map || {};
+    const sym = aliasMap[symbol.toUpperCase()] || symbol;
+
+    const data = await yahooSeries(sym, {
+      range: ycfg.range || "10y",
+      interval: ycfg.interval || "1d",
+      cacheDir: ycfg.cache?.dir || "data/_cache/yahoo",
+      ttlDays: Number(ycfg.cache?.ttlDays ?? 7),
+    });
+    if (data.length) return { used: sym, data };
+    return { used: sym, data: [] };
   }
 
   const data = await stooqSeries(symbol);

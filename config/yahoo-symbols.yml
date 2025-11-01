@@ -1,0 +1,2 @@
+map:
+  STM.PA: "STM.MI"   # STMicroelectronics (fallback Milan)

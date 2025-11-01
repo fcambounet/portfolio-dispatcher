@@ -52,6 +52,13 @@ providers:
       dir: data/_cache/alpha
       ttlDays: 7
 
+  yahoo:
+    range: 10y         # 1y, 5y, 10y, max
+    interval: 1d       # 1d recommandé
+    cache:
+      dir: data/_cache/yahoo
+      ttlDays: 7
+
 # ---------------------------------------------------------------------
 # Exemples de titres suivis (marché FR)
 # ---------------------------------------------------------------------
