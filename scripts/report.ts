@@ -2,6 +2,10 @@
 import fs from "node:fs";
 import path from "node:path";
 
+const checks = safeReadJSON<any>(path.join("data","checks.json"), null as any);
+const auditLatest = path.join("data","audit","latest.json");
+const auditExists = fs.existsSync(auditLatest);
+
 /* ----------------------------- helpers ----------------------------- */
 
 function safeReadJSON<T = any>(p: string, fallback: T): T {
@@ -331,6 +335,19 @@ const html = `<!doctype html>
                </ul>`
             : "<p>—</p>"
         }
+      </div>
+      <div class="card">
+        <h2>Qualité & Audit</h2>
+        ${
+          checks
+            ? (checks.ok
+                ? `<p style="color:#16a34a"><b>Sanity checks: OK</b></p>`
+                : `<p style="color:#dc2626"><b>Sanity checks: ${checks.issues?.length || 0} issue(s)</b></p>
+                   <ul style="margin-top:6px">${(checks.issues||[]).map((i:any)=>`<li>[${i.severity}] ${i.code} — ${i.message}</li>`).join("")}</ul>`
+              )
+            : `<p class="muted">—</p>`
+        }
+        ${auditExists ? `<p style="margin-top:8px"><a href="../data/audit/latest.json">Télécharger l’audit (latest.json)</a></p>` : ""}
       </div>
       <div class="card">
         <h2>Trades de la semaine</h2>

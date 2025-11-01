@@ -4,6 +4,18 @@ import path from "node:path";
 import { loadConfig } from "./config.js";
 import crypto from "node:crypto";
 
+let _lastCall = 0;
+let _madeThisRun = 0;
+function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
+function getRetryAfterMs(headers: Headers): number | null {
+  const ra = headers.get("retry-after");
+  if (!ra) return null;
+  const n = Number(ra);
+  if (Number.isFinite(n)) return n * 1000;
+  const dt = Date.parse(ra);
+  return Number.isFinite(dt) ? Math.max(0, dt - Date.now()) : null;
+}
+
 export type WebResult = {
   title: string;
   url: string;
@@ -76,18 +88,48 @@ function normalize(results: any[], opts: { max: number, freshnessDays?: number, 
   return uniq.slice(0, opts.max);
 }
 
-async function fetchJSON(url: string, init: RequestInit): Promise<any> {
-  const res = await fetch(url, init);
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(`HTTP ${res.status} ${res.statusText}: ${txt.slice(0,200)}`);
+async function fetchJSON(url: string, init: RequestInit, cfg?: any): Promise<any> {
+  const rate = Math.max(1, cfg?.websearch?.rateLimitPerSecond ?? 1);
+  const minGap = 1000 / rate;
+
+  // spacing anti-429
+  const since = Date.now() - _lastCall;
+  if (since < minGap) await sleep(minGap - since);
+
+  let attempt = 0;
+  while (attempt < 3) {
+    const res = await fetch(url, init);
+    _lastCall = Date.now();
+
+    if (res.status === 429) {
+      const mode = (cfg?.websearch?.on429 ?? "fallback").toLowerCase();
+      const raMs = getRetryAfterMs(res.headers) ?? 1200; // ~1.2s par défaut
+      attempt++;
+      if (mode === "retry" && attempt < 3) {
+        await sleep(raMs);
+        continue;
+      }
+      if (mode === "fallback") {
+        throw Object.assign(new Error("RATE_LIMITED_FALLBACK"), { status: 429 });
+      }
+      // mode "error"
+      const txt = await res.text().catch(() => "");
+      throw new Error(`HTTP 429 Too Many Requests: ${txt.slice(0,200)}`);
+    }
+
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      throw new Error(`HTTP ${res.status} ${res.statusText}: ${txt.slice(0,200)}`);
+    }
+
+    const ct = res.headers.get("content-type") || "";
+    if (!ct.includes("application/json")) {
+      const txt = await res.text().catch(() => "");
+      throw new Error(`Unexpected content-type: ${ct} body=${txt.slice(0,200)}`);
+    }
+    return res.json();
   }
-  const ct = res.headers.get("content-type") || "";
-  if (!ct.includes("application/json")) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(`Unexpected content-type: ${ct} body=${txt.slice(0,200)}`);
-  }
-  return res.json();
+  throw new Error("Max retries reached");
 }
 
 // --- Providers --------------------------------------------------------
@@ -166,68 +208,77 @@ export async function webSearch(query: string, limit?: number): Promise<WebResul
   const provider = (ws.provider || "mock").toLowerCase();
   const max = limit ?? ws.maxResults ?? 5;
   const ttlDays = ws.ttlDays ?? 7;
+  const maxRun = Math.max(1, ws.maxRequestsPerRun ?? 20);
 
   const cacheKey = `${provider}:${ws.language || ""}:${max}:${query}`;
   const file = path.join(CACHE_DIR, `${hash(cacheKey)}.json`);
   ensureCache();
 
-  // 1) Cache hit si frais
+  // cache
   if (fs.existsSync(file)) {
     try {
       const j = JSON.parse(fs.readFileSync(file, "utf8"));
-      if (j && j._cachedAt && isFresh(j._cachedAt, ttlDays)) {
-        return j.results as WebResult[];
-      }
+      if (j?._cachedAt && isFresh(j._cachedAt, ttlDays)) return j.results as WebResult[];
     } catch {}
   }
 
-  // 2) Fetch provider (ou mock)
-  let results: WebResult[] = [];
-  try {
-    if (provider === "brave") {
-      results = await searchBrave(query, max, ws.language);
-    } else if (provider === "serpapi") {
-      results = await searchSerpAPI(query, max, ws.language);
-    } else if (provider === "bing") {
-      results = await searchBing(query, max, ws.language);
-    } else {
-      // MOCK
-      results = Array.from({ length: max }, (_, i) => ({
-        title: `[Mock] ${query} #${i + 1}`,
-        url: `https://example.com/${encodeURIComponent(query)}/${i + 1}`,
-        snippet: `Simulated result for "${query}"`,
-        publishedAt: nowISO(),
-        source: "example.com"
-      }));
-    }
-  } catch (e: any) {
-    // En cas d’erreur provider → fallback mock (et on log)
-    console.warn("webSearch provider error:", e?.message || e);
-    results = Array.from({ length: max }, (_, i) => ({
-      title: `[Fallback] ${query} #${i + 1}`,
-      url: `https://fallback.local/${encodeURIComponent(query)}/${i + 1}`,
-      snippet: `Fallback result for "${query}"`,
-      publishedAt: nowISO(),
-      source: "fallback.local"
-    }));
+  // 🔒 quota par run
+  if (_madeThisRun >= maxRun) {
+    console.warn(`[webSearch] maxRequestsPerRun reached (${maxRun}) → using fallback mock`);
+    return mockResults(query, max);
   }
 
-  // 3) Post-filters (includes/excludes/freshness)
-  const filtered = normalize(
-    results,
-    {
-      max,
-      freshnessDays: ws.freshnessDays,
-      includes: Array.isArray(ws.includeDomains) ? ws.includeDomains : undefined,
-      excludes: Array.isArray(ws.excludeDomains) ? ws.excludeDomains : undefined,
-      lang: ws.language
-    }
-  );
-
-  // 4) Write cache
+  let results: WebResult[] = [];
   try {
-    fs.writeFileSync(file, JSON.stringify({ _cachedAt: nowISO(), results: filtered }, null, 2), "utf8");
-  } catch {}
+    _madeThisRun++;
+    if (provider === "brave") {
+      const url = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${max}${ws.language?`&lang=${ws.language}`:""}`;
+      const json = await fetchJSON(url, { method: "GET", headers: { "Accept": "application/json", "X-Subscription-Token": process.env.WEB_SEARCH_KEY! } }, { websearch: ws });
+      const web = json.web?.results || [];
+      const news = json.news?.results || [];
+      const to = (x: any): Partial<WebResult> => ({ title: x.title, url: x.url, snippet: x.description || x.snippet, publishedAt: x.age || x.published || x.date });
+      results = normalize([...web.map(to), ...news.map(to)], { max, lang: ws.language, freshnessDays: ws.freshnessDays, includes: ws.includeDomains, excludes: ws.excludeDomains });
+    } else if (provider === "serpapi") {
+      const url = `https://serpapi.com/search.json?q=${encodeURIComponent(query)}&engine=google&num=${max}${ws.language?`&hl=${ws.language}`:""}&api_key=${process.env.WEB_SEARCH_KEY}`;
+      const json = await fetchJSON(url, { method: "GET" }, { websearch: ws });
+      const org = json.organic_results || [];
+      const news = json.news_results || [];
+      const toOrg = (x: any): Partial<WebResult> => ({ title: x.title, url: x.link, snippet: x.snippet || x.description, publishedAt: x.date });
+      const toNews = (x: any): Partial<WebResult> => ({ title: x.title, url: x.link, snippet: x.snippet || x.source, publishedAt: x.date });
+      results = normalize([...org.map(toOrg), ...news.map(toNews)], { max, lang: ws.language, freshnessDays: ws.freshnessDays, includes: ws.includeDomains, excludes: ws.excludeDomains });
+    } else if (provider === "bing") {
+      const url = `https://api.bing.microsoft.com/v7.0/search?q=${encodeURIComponent(query)}&count=${max}${ws.language?`&setLang=${ws.language}`:""}`;
+      const json = await fetchJSON(url, { method: "GET", headers: { "Ocp-Apim-Subscription-Key": process.env.WEB_SEARCH_KEY! } }, { websearch: ws });
+      const web = json.webPages?.value || [];
+      const news = json.news?.value || [];
+      const toWeb = (x: any): Partial<WebResult> => ({ title: x.name, url: x.url, snippet: x.snippet, publishedAt: x.dateLastCrawled });
+      const toNews = (x: any): Partial<WebResult> => ({ title: x.name, url: x.url, snippet: x.description, publishedAt: x.datePublished });
+      results = normalize([...web.map(toWeb), ...news.map(toNews)], { max, lang: ws.language, freshnessDays: ws.freshnessDays, includes: ws.includeDomains, excludes: ws.excludeDomains });
+    } else {
+      results = mockResults(query, max);
+    }
+  } catch (e: any) {
+    const mode = (ws.on429 ?? "fallback").toLowerCase();
+    if (e?.message === "RATE_LIMITED_FALLBACK" || mode === "fallback") {
+      results = ws.providerFallback === "mock" ? mockResults(query, max) : [];
+    } else {
+      console.warn("webSearch provider error:", e?.message || e);
+      results = mockResults(query, max);
+    }
+  }
 
-  return filtered;
+  try {
+    fs.writeFileSync(file, JSON.stringify({ _cachedAt: nowISO(), results }, null, 2), "utf8");
+  } catch {}
+  return results;
+}
+
+function mockResults(query: string, max: number): WebResult[] {
+  return Array.from({ length: max }, (_, i) => ({
+    title: `[Mock] ${query} #${i + 1}`,
+    url: `https://example.com/${encodeURIComponent(query)}/${i + 1}`,
+    snippet: `Simulated result for "${query}"`,
+    publishedAt: nowISO(),
+    source: "example.com",
+  }));
 }
