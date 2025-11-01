@@ -1,0 +1,34 @@
+# alias Stooq quand .PA n'existe pas
+aliases:
+  # Luxe
+  MC.PA: MOH.DE     # LVMH
+  OR.PA: LOR.DE     # L'Oréal
+  RMS.PA: CIE.DE    # Hermès (souvent CIE.DE/CFR ? à ajuster si besoin)
+  KER.PA: PPR.DE    # Kering (ticker FR = KER, DE peut varier)
+
+  # Santé
+  SAN.PA: SNW.DE    # Sanofi
+  AI.PA: AIQ.DE     # Air Liquide
+  IPN.PA: IPN.DE    # Ipsen (à vérifier)
+
+  # Energie / Utilities
+  TTE.PA: TTF.DE    # TotalEnergies (souvent TTE.DE / TTF.DE selon la venue)
+  ENGI.PA: ENGI.DE  # Engie
+  EDF.PA: EDF.DE    # EDF
+
+  # Industrie
+  AIR.PA: AIR.DE    # Airbus
+  SGO.PA: SGO.DE    # Saint-Gobain
+  ALO.PA: ALS.DE    # Alstom
+
+  # Finance
+  BNP.PA: BNP.DE    # BNP Paribas
+  ACA.PA: ACA.DE    # Crédit Agricole
+  GLE.PA: GLE.DE    # Société Générale
+  AMUN.PA: AMU.DE   # Amundi
+  CS.PA:   CSX.DE   # AXA (souvent CS.PA ↔ CSX.DE)
+
+  # Tech / Télécom
+  CAP.PA: CAP.DE    # Capgemini
+  STM.PA: STM.DE    # STMicro
+  ORA.PA: FTE.DE    # Orange (souvent FTE.DE)

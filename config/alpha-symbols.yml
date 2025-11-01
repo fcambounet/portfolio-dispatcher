@@ -1,0 +1,16 @@
+# Propositions de correspondance Alpha Vantage (à copier dans config/alpha-symbols.yml)
+map:
+  MC.PA: "MC.PAR"
+  OR.PA: "OR.PAR"
+  RMS.PA: "RMS.PAR"
+  SAN.PA: "SAN.PAR"
+  AI.PA: "AI.PAR"
+  TTE.PA: "TTE.LON"
+  AIR.PA: "AIR.FRK"
+  SGO.PA: "SGO.PAR"
+  BNP.PA: "BNP.FRK"
+  ACA.PA: "ACA.PAR"
+  GLE.PA: "GLE.FRK"
+  CAP.PA: "CAP.PAR"
+  ORA.PA: ""  # A compléter manuellement
+  STM.PA: ""  # A compléter manuellement

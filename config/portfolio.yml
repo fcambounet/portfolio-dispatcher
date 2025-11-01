@@ -1,43 +1,90 @@
-# Configuration centrale du portefeuille
+# config/portfolio.yml
+asOf: 2025-11-01
+baseCurrency: EUR
+
+benchmark: "^CAC"       # 🇫🇷 Indice CAC 40
+initialCash: 10000       # Portefeuille virtuel de départ (en euros)
 
 sectors:
-  - name: Technology
-    symbols: [AAPL, MSFT, NVDA]
-  - name: Healthcare
-    symbols: [JNJ, PFE, UNH]
-  - name: Energy
-    symbols: [XOM, CVX, BP]
+  - Luxe
+  - Énergie
+  - Santé
+  - Industrie
+  - Finance
+  - Technologie
 
 constraints:
-  maxLine: 0.05
-  maxSector: 0.20
-
-scoring:
-  formula: ratio          # ratio | linear
-  w5: 1.0
-  w20: 0.0
-  lambda: 0.0
-  eps: 1e-4
+  maxLine: 0.25          # poids max d'une ligne
+  maxSector: 0.5         # poids max d'un secteur
 
 risk:
-  targetVol: 0.20
-  maxDrawdown: 0.10
+  maxConcentration: 0.35
+  alertThreshold: 0.9
 
-qualitative:
-  sentimentMultipliers:
-    positive: 1.10   # +10%
-    neutral: 1.00
-    negative: 0.90   # -10%
-
+# ---------------------------------------------------------------------
+# Recherche web réelle (Reco #2)
+# ---------------------------------------------------------------------
 websearch:
-  provider: brave        # brave | serpapi | bing | mock
-  ttlDays: 7             # cache TTL
-  maxResults: 6          # par requête
-  language: fr           # fr | en | ...
-  freshnessDays: 90      # ignorer les résultats trop anciens si datés
-  includeDomains: []     # ex: [investors.apple.com, reuters.com]
-  excludeDomains: []     # ex: [reddit.com, tiktok.com]
-  rateLimitPerSecond: 1     # Brave Free ~1 req/s
-  maxRequestsPerRun: 20     # plafond dur par exécution (sécurité)
-  on429: fallback           # fallback | retry | error
-  providerFallback: mock    # si fallback, utiliser mock
+  provider: brave            # brave | serpapi | bing | mock
+  ttlDays: 7
+  maxResults: 5
+  language: fr
+  rateLimitPerSecond: 1
+  maxRequestsPerRun: 20
+  on429: fallback            # fallback | retry | error
+  providerFallback: mock
+
+# ---------------------------------------------------------------------
+# Marché / sources de prix (Reco #2-bis)
+# ---------------------------------------------------------------------
+market:
+  source: mixed             # mixed = indices via Stooq, actions via Alpha Vantage
+  defaultSuffix: ".PA"       # Paris / Euronext
+  benchmark: "^CAC"
+  currency: EUR
+
+providers:
+  alphaVantage:
+    keyEnv: ALPHA_VANTAGE_KEY
+    outputSize: compact      # ou full
+    minDelayMs: 15000        # 5 req/min → 15s mini
+    cache:
+      dir: data/_cache/alpha
+      ttlDays: 7
+
+# ---------------------------------------------------------------------
+# Exemples de titres suivis (marché FR)
+# ---------------------------------------------------------------------
+symbols:
+  # Luxe
+  - MC.PA   # LVMH
+  - OR.PA   # L'Oréal
+  - RMS.PA  # Hermès
+
+  # Santé
+  - SAN.PA  # Sanofi
+  - AI.PA   # Air Liquide
+
+  # Énergie
+  - TTE.PA  # TotalEnergies
+
+  # Industrie
+  - AIR.PA  # Airbus
+  - SGO.PA  # Saint-Gobain
+
+  # Finance
+  - BNP.PA  # BNP Paribas
+  - ACA.PA  # Crédit Agricole
+  - GLE.PA  # Société Générale
+
+  # Technologie / télécoms
+  - CAP.PA  # Capgemini
+  - ORA.PA  # Orange
+  - STM.PA  # STMicroelectronics
+
+# ---------------------------------------------------------------------
+# Divers
+# ---------------------------------------------------------------------
+report:
+  outputDir: report
+  theme: light

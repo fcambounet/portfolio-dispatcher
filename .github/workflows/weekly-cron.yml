@@ -37,8 +37,10 @@ jobs:
         env:
           WEB_SEARCH_KEY: ${{ secrets.WEB_SEARCH_KEY }}
 
-      - name: Cache price series (Stooq)
+      - name: Cache price series (AV + Stooq)
         run: npm run report:cache
+        env:
+          ALPHA_VANTAGE_KEY: ${{ secrets.ALPHA_VANTAGE_KEY }}
 
       - name: Fail if sanity checks have ERROR
         run: node -e "const c=require('./data/checks.json'); if(!c.ok && (c.issues||[]).some(i=>i.severity==='ERROR')){ console.error('Checks failed:', c.issues); process.exit(1); }"
@@ -48,6 +50,9 @@ jobs:
 
       - name: Build HTML reports
         run: npm run report:html
+        
+      - name: Build dashboard
+        run: npm run report:dashboard
 
       # 📄 GitHub Pages (publie report/index.html + weekly-report.html + datés)
       - name: Setup Pages
