@@ -34,6 +34,14 @@ jobs:
 
       - name: Generate weekly data
         run: npm run run:weekly
+        env:
+          WEB_SEARCH_KEY: ${{ secrets.WEB_SEARCH_KEY }}
+
+      - name: Cache price series (Stooq)
+        run: npm run report:cache
+
+      - name: Fail if sanity checks have ERROR
+        run: node -e "const c=require('./data/checks.json'); if(!c.ok && (c.issues||[]).some(i=>i.severity==='ERROR')){ console.error('Checks failed:', c.issues); process.exit(1); }"
 
       - name: Build sparkline cache
         run: npm run report:cache

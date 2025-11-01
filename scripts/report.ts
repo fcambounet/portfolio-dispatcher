@@ -6,6 +6,10 @@ const checks = safeReadJSON<any>(path.join("data","checks.json"), null as any);
 const auditLatest = path.join("data","audit","latest.json");
 const auditExists = fs.existsSync(auditLatest);
 
+const wsStats = safeReadJSON<any>(path.join("data","_cache","search","_stats.json"), null as any);
+const wsUsed = wsStats?.made ?? 0;
+const wsMax = safeReadJSON<any>(path.join("config","portfolio.yml"), {}).websearch?.maxRequestsPerRun ?? 20;
+
 /* ----------------------------- helpers ----------------------------- */
 
 function safeReadJSON<T = any>(p: string, fallback: T): T {
@@ -246,6 +250,10 @@ const sectorBadges = sectorsUnique
 // total poids pour contrôle
 const totalPct = (target.reduce((a, b) => a + (b.weight || 0), 0) * 100).toFixed(2);
 
+const totalOk = Math.abs(Number(totalPct) - 100) < 0.01;
+const totalBadgeColor = totalOk ? "#16a34a" : "#f59e0b";
+const totalBadge = `<span style="display:inline-block;padding:2px 8px;border-radius:999px;background:${totalBadgeColor};color:#fff;font-weight:600">Total ${Number(totalPct).toFixed(2)}%</span>`;
+
 // HTML complet
 const html = `<!doctype html>
 <html lang="fr"><meta charset="utf-8"/>
@@ -270,7 +278,9 @@ const html = `<!doctype html>
 <div class="wrap">
   <div class="card">
     <h1>📊 Rapport hebdo — Portefeuille <span class="badge">Risque : ${riskStatus}</span></h1>
-    <div class="muted">Généré le ${new Date().toLocaleString("fr-FR")} • Données au ${new Date(asOf).toLocaleString("fr-FR")} • Total=${totalPct}%</div>
+    <div class="muted">
+      Généré le ${new Date().toLocaleString("fr-FR")} • Données au ${new Date(asOf).toLocaleString("fr-FR")} • ${totalBadge}
+    </div>
     <div class="legend" style="margin-top:8px">
       <span class="tech">Technology</span>
       <span class="health">Healthcare</span>
@@ -279,6 +289,11 @@ const html = `<!doctype html>
   </div>
 
   ${sectorBadges ? `<div class="card"><h2>Sentiment sectoriel</h2><div>${sectorBadges}</div></div>` : ""}
+
+  <div class="card">
+    <h2>WebSearch</h2>
+    <p class="muted">Requêtes utilisées : <b>${wsUsed}/${wsMax}</b></p>
+  </div>
 
   <div class="card">
     <h2>Évolution NAV (Portefeuille vs Benchmark)</h2>
@@ -335,6 +350,17 @@ const html = `<!doctype html>
                </ul>`
             : "<p>—</p>"
         }
+      </div>
+      <div class="card">
+        <h2>Données brutes</h2>
+        <ul>
+          <li><a href="../data/portfolio.target.json">portfolio.target.json</a></li>
+          <li><a href="../data/portfolio.risk.json">portfolio.risk.json</a></li>
+          <li><a href="../data/ledger/nav.csv">ledger/nav.csv</a></li>
+          <li><a href="../data/ledger/trades.csv">ledger/trades.csv</a></li>
+          <li><a href="../data/audit/latest.json">audit/latest.json</a></li>
+        </ul>
+        <p class="muted">Selon ton déploiement Pages, ces liens peuvent être seulement locaux.</p>
       </div>
       <div class="card">
         <h2>Qualité & Audit</h2>

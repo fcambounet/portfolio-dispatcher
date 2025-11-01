@@ -4,6 +4,17 @@ import path from "node:path";
 import { loadConfig } from "./config.js";
 import crypto from "node:crypto";
 
+const STATS_FILE = path.join("data","_cache","search","_stats.json");
+function writeStats() {
+  try {
+    fs.mkdirSync(path.dirname(STATS_FILE), { recursive: true });
+    const prev = fs.existsSync(STATS_FILE) ? JSON.parse(fs.readFileSync(STATS_FILE,"utf8")) : {};
+    prev.asOf = new Date().toISOString();
+    prev.made = _madeThisRun;
+    fs.writeFileSync(STATS_FILE, JSON.stringify(prev,null,2), "utf8");
+  } catch {}
+}
+
 let _lastCall = 0;
 let _madeThisRun = 0;
 function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)); }
@@ -270,6 +281,7 @@ export async function webSearch(query: string, limit?: number): Promise<WebResul
   try {
     fs.writeFileSync(file, JSON.stringify({ _cachedAt: nowISO(), results }, null, 2), "utf8");
   } catch {}
+  writeStats();
   return results;
 }
 
