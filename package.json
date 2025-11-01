@@ -9,7 +9,9 @@
     "worker:dev": "wrangler dev worker/index.ts",
     "worker:deploy": "wrangler deploy worker/index.ts",
     "report:cache": "tsx scripts/cache-series.ts",
-    "report:html": "tsx scripts/report.ts"
+    "report:html": "tsx scripts/report.ts",
+    "weekly:all": "npm run run:weekly && npm run report:cache && npm run report:html",
+    "test": "vitest run"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
@@ -20,6 +22,7 @@
   "devDependencies": {
     "cross-env": "^10.1.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.9"
   }
 }

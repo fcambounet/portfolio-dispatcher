@@ -9,9 +9,13 @@ import { ChercheurEntreprise } from "../agents/chercheur-entreprise.js";
 import { RecommandateurSectoriel } from "../agents/recommandateur-sectoriel.js";
 import { StrategistePortefeuille } from "../agents/strategiste-portefeuille.js";
 import { RiskManager } from "../agents/risk-manager.js";
+import { initLedger, markToMarket, rebalance } from "../core/backtest.js";
 
 import { loadConfig } from "../core/config.js";
 import { appendJSONL } from "../core/io.js";
+
+import { writeAudit } from "../core/audit.js";
+import { runChecks } from "../core/checks.js";
 
 export async function runWeekly() {
   console.log("🏁 Starting weekly cycle...");
@@ -48,7 +52,7 @@ export async function runWeekly() {
     await AnalyseurQuali.handle({ sector }); // ← AJOUT
 
     // Recherche des entreprises principales du secteur
-    const companies = (asp.symbols || []).map((x: any) => x.symbol);
+    const companies = (asp.symbols || []).slice(0, 3).map((x: any) => x.symbol);
     for (const sym of companies) {
       await ChercheurEntreprise.handle({ symbol: sym });
     }
@@ -95,6 +99,19 @@ export async function runWeekly() {
     target
   };
   fs.writeFileSync("data/weekly-summary.json", JSON.stringify(report, null, 2), "utf8");
+
+  // ——— Sanity checks & audit
+  const checks = runChecks({ target, constraints: CONSTRAINTS, minLines: 4, tol: 1e-6 });
+  fs.writeFileSync("data/checks.json", JSON.stringify(checks, null, 2), "utf8");
+  const auditFile = writeAudit(report.asOf);
+  console.log(`🧪 Checks: ${checks.ok ? "OK" : "ISSUES"} • Audit → ${auditFile}`);
+
+  // ——— Backtest hebdo (PnL virtuel & journal trades) ———
+  const runDate = new Date().toISOString().slice(0,10);
+  await initLedger(10000, runDate);               // crée ledger si absent
+  await markToMarket(runDate);                    // évalue avant rebalance (lecture cash)
+  const trades = await rebalance(target, runDate); // exécute vers l’allocation cible
+  console.log(`🧾 Trades exécutés: ${trades.length}`);
 
   console.log("✅ Weekly report generated.");
   return report;

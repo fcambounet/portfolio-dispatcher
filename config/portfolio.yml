@@ -28,3 +28,16 @@ qualitative:
     positive: 1.10   # +10%
     neutral: 1.00
     negative: 0.90   # -10%
+
+websearch:
+  provider: brave        # brave | serpapi | bing | mock
+  ttlDays: 7             # cache TTL
+  maxResults: 6          # par requête
+  language: fr           # fr | en | ...
+  freshnessDays: 90      # ignorer les résultats trop anciens si datés
+  includeDomains: []     # ex: [investors.apple.com, reuters.com]
+  excludeDomains: []     # ex: [reddit.com, tiktok.com]
+  rateLimitPerSecond: 1     # Brave Free ~1 req/s
+  maxRequestsPerRun: 20     # plafond dur par exécution (sécurité)
+  on429: fallback           # fallback | retry | error
+  providerFallback: mock    # si fallback, utiliser mock

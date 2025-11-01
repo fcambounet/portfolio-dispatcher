@@ -115,14 +115,26 @@ export async function rebalance(target: TargetLine[], asOf?: string) {
   const trades: { date: string; symbol: string; qty: number; price: number; value: number; reason: string }[] = [];
   for (const [sym, desiredQty] of Object.entries(desires)) {
     const current = pos[sym] || 0;
-    const delta = desiredQty - current;
-    if (Math.abs(delta) < 1e-6) continue; // negligible
     const px = latestPrice(sym) ?? 0;
+    if (px <= 0) continue;
+
+    // 🔸 arrondir le nombre d’actions à l’entier le plus proche
+    const desiredInt = Math.round(desiredQty);
+    const delta = desiredInt - current;
+    if (delta === 0) continue;
+
     const tradeValue = delta * px;
-    // Exécute l’ordre
     pos[sym] = current + delta;
-    cash -= tradeValue; // achat -> cash baisse ; vente -> cash augmente
-    trades.push({ date: d, symbol: sym, qty: delta, price: px, value: tradeValue, reason: "rebalance" });
+    cash -= tradeValue;
+
+    trades.push({
+      date: d,
+      symbol: sym,
+      qty: delta,
+      price: px,
+      value: tradeValue,
+      reason: "rebalance (rounded)"
+    });
   }
 
   // Sauvegarde positions & trades
