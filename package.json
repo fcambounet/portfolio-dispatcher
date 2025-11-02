@@ -13,7 +13,9 @@
     "weekly:all": "npm run run:weekly && npm run report:cache && npm run report:html && npm run report:dashboard",
     "test": "vitest run",
     "report:dashboard": "tsx scripts/dashboard.ts",
-    "av:discover": "tsx scripts/alpha-discover.ts"
+    "av:discover": "tsx scripts/alpha-discover.ts",
+    "check:data": "tsx scripts/check-data.ts",
+    "sync:data": "tsx scripts/sync-data.ts"
   },
   "dependencies": {
     "dotenv": "^16.6.1",
